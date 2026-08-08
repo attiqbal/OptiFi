@@ -1,0 +1,20 @@
+[project]
+name = "optifi-ai"
+version = "0.1.0"
+description = "ai-engine: candidate framing, unstructured-extraction support, disagreement-preserving synthesis, and disclosure, per AI_ENGINE_SPEC.md."
+requires-python = ">=3.10"
+dependencies = [
+    "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["optifi_ai*"]
