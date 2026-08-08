@@ -1,0 +1,20 @@
+[project]
+name = "optifi-shared"
+version = "0.1.0"
+description = "Shared types and contracts used across OptiFi's analytical engines. Implements the Universal Analytical Packet (UAP) defined in ANALYTICAL_CONTRACT_SPEC.md Section 5."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["optifi_shared*"]
