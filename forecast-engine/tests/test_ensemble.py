@@ -174,13 +174,21 @@ def test_inverse_error_weighted_does_not_mutate_inputs():
 
 
 def test_confidence_is_higher_for_clustered_than_spread_inputs():
+    """
+    _confidence_from_spread caps at MODERATE, never HIGH — the ensemble
+    UAP is always validation_status=PROVISIONAL (uncorroborated), and
+    UAP's own model-level guardrail requires HIGH confidence to pair
+    with a settled status. Internal model agreement, however tight,
+    isn't external corroboration. The clustered/spread distinction still
+    holds at the MODERATE/LOW boundary.
+    """
     clustered = [_make_forecast(0.30), _make_forecast(0.31), _make_forecast(0.32)]
     spread = [_make_forecast(0.10), _make_forecast(0.50), _make_forecast(0.90)]
 
     clustered_uap = simple_average_ensemble(clustered)
     spread_uap = simple_average_ensemble(spread)
 
-    assert clustered_uap.confidence == ConfidenceLevel.HIGH
+    assert clustered_uap.confidence == ConfidenceLevel.MODERATE
     assert spread_uap.confidence == ConfidenceLevel.LOW
     assert clustered_uap.confidence != spread_uap.confidence
 
@@ -193,5 +201,5 @@ def test_confidence_is_higher_for_clustered_than_spread_inputs_inverse_error_wei
     clustered_uap = inverse_error_weighted_ensemble(clustered, errors)
     spread_uap = inverse_error_weighted_ensemble(spread, errors)
 
-    assert clustered_uap.confidence == ConfidenceLevel.HIGH
+    assert clustered_uap.confidence == ConfidenceLevel.MODERATE
     assert spread_uap.confidence == ConfidenceLevel.LOW

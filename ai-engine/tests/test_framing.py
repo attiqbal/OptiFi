@@ -110,6 +110,9 @@ def test_generator_never_receives_the_candidates_figures():
 
 
 def _make_candidate_with_status(result: dict, validation_status: ValidationStatus) -> UAP:
+    # MODERATE, not HIGH: this helper is used with REJECTED/CONFLICTED/
+    # STALE/INCOMPLETE, none of which permit HIGH confidence under UAP's
+    # own model-level guardrail (shared/optifi_shared/uap.py).
     return UAP(
         subject="reduce duration exposure",
         information_class=InformationClass.ESTIMATE,
@@ -117,7 +120,7 @@ def _make_candidate_with_status(result: dict, validation_status: ValidationStatu
         result=result,
         source="optimisation-engine",
         producer="optimisation-engine (test)",
-        confidence=ConfidenceLevel.HIGH,
+        confidence=ConfidenceLevel.MODERATE,
     )
 
 

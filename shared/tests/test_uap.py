@@ -96,6 +96,11 @@ def test_confidence_only_accepts_a_valid_confidence_level():
     for level in ConfidenceLevel:
         kwargs = _full_uap_kwargs()
         kwargs["confidence"] = level
+        if level == ConfidenceLevel.HIGH:
+            # HIGH requires a settled validation_status (see
+            # test_high_confidence_requires_settled_status below) —
+            # _full_uap_kwargs()'s default PROVISIONAL wouldn't allow it.
+            kwargs["validation_status"] = ValidationStatus.VERIFIED
         assert UAP(**kwargs).confidence == level
 
 
@@ -114,6 +119,64 @@ def test_two_instances_have_different_auto_generated_ids():
     second = UAP(**minimal_kwargs)
 
     assert first.id != second.id
+
+
+# --- HIGH confidence requires a settled validation_status ---
+
+
+def test_high_confidence_requires_settled_status():
+    kwargs = _full_uap_kwargs()
+    kwargs["confidence"] = ConfidenceLevel.HIGH
+    kwargs["validation_status"] = ValidationStatus.PROVISIONAL  # the original adversarial case
+
+    with pytest.raises(ValidationError, match="HIGH"):
+        UAP(**kwargs)
+
+
+@pytest.mark.parametrize("status", [ValidationStatus.VERIFIED, ValidationStatus.SUPERSEDED])
+def test_high_confidence_allowed_for_settled_statuses(status):
+    kwargs = _full_uap_kwargs()
+    kwargs["confidence"] = ConfidenceLevel.HIGH
+    kwargs["validation_status"] = status
+    assert UAP(**kwargs).confidence == ConfidenceLevel.HIGH
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ValidationStatus.PROVISIONAL,
+        ValidationStatus.CONFLICTED,
+        ValidationStatus.STALE,
+        ValidationStatus.INCOMPLETE,
+        ValidationStatus.REJECTED,
+    ],
+)
+def test_high_confidence_rejected_for_every_unsettled_status(status):
+    kwargs = _full_uap_kwargs()
+    kwargs["confidence"] = ConfidenceLevel.HIGH
+    kwargs["validation_status"] = status
+    with pytest.raises(ValidationError, match="HIGH"):
+        UAP(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ValidationStatus.PROVISIONAL,
+        ValidationStatus.CONFLICTED,
+        ValidationStatus.STALE,
+        ValidationStatus.INCOMPLETE,
+        ValidationStatus.REJECTED,
+    ],
+)
+@pytest.mark.parametrize("confidence", [ConfidenceLevel.MODERATE, ConfidenceLevel.LOW])
+def test_moderate_and_low_confidence_remain_valid_for_every_unsettled_status(status, confidence):
+    kwargs = _full_uap_kwargs()
+    kwargs["confidence"] = confidence
+    kwargs["validation_status"] = status
+    uap = UAP(**kwargs)
+    assert uap.confidence == confidence
+    assert uap.validation_status == status
 
 
 def test_provenance_chain_and_dependencies_default_to_empty_list():

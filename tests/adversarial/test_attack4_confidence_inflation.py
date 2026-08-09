@@ -3,15 +3,21 @@ Attack 4 — Confidence Inflation.
 
 `confidence` (Section 5 of ANALYTICAL_CONTRACT_SPEC.md) and
 `validation_status` (Section 4) are explicitly documented as two
-independent axes. This attack asks: independent in the sense of "not
-conflated in meaning" (the documented intent), or independent in the
-sense of "nothing anywhere checks whether a specific combination is
-internally consistent"? A PROVISIONAL, single-sourced, uncorroborated
-FACT claiming HIGH confidence is a specific, testable case of the
-latter.
+independent axes. This attack originally found that "independent" meant
+"nothing anywhere checks whether a specific combination is internally
+consistent" — a PROVISIONAL, single-sourced, uncorroborated FACT could
+freely claim HIGH confidence with zero pushback anywhere in the system.
+
+UPDATE (post-fix): UAP now has a model_validator
+(shared/optifi_shared/uap.py) requiring HIGH confidence to pair only with
+a settled validation_status (VERIFIED or SUPERSEDED) — every other status
+caps confidence at MODERATE. See
+shared/tests/test_uap.py::test_high_confidence_requires_settled_status
+and its neighbouring tests for the complete matrix.
 """
 
 import pytest
+from pydantic import ValidationError
 
 from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
 from optifi_verification import (
@@ -21,74 +27,90 @@ from optifi_verification import (
 )
 
 
-def _inflated_fact() -> UAP:
-    return UAP(
+def test_re_test_the_original_inflated_fact_now_raises():
+    """
+    RE-TEST (post-fix), the exact original construction: a PROVISIONAL,
+    single-sourced, uncorroborated FACT claiming HIGH confidence no
+    longer constructs at all.
+    """
+    with pytest.raises(ValidationError, match="HIGH"):
+        UAP(
+            subject="Bank of England signalled a rate cut",
+            information_class=InformationClass.FACT,
+            validation_status=ValidationStatus.PROVISIONAL,  # single-sourced, uncorroborated
+            result="Bank of England signalled a rate cut",
+            source="Illustrative Wire Service — not a real data source",
+            producer="data-engine (test)",
+            confidence=ConfidenceLevel.HIGH,  # claims the opposite
+        )
+
+
+def test_the_same_fact_construction_succeeds_once_genuinely_verified():
+    """
+    The legitimate version of the original scenario: once the fact is
+    actually VERIFIED (settled), HIGH confidence is a permitted, honest
+    claim — the fix gates the combination, it doesn't ban HIGH outright.
+    """
+    verified_fact = UAP(
         subject="Bank of England signalled a rate cut",
         information_class=InformationClass.FACT,
-        validation_status=ValidationStatus.PROVISIONAL,  # single-sourced, uncorroborated
+        validation_status=ValidationStatus.VERIFIED,
         result="Bank of England signalled a rate cut",
         source="Illustrative Wire Service — not a real data source",
         producer="data-engine (test)",
-        confidence=ConfidenceLevel.HIGH,  # claims the opposite
+        confidence=ConfidenceLevel.HIGH,
+    )
+    assert verified_fact.validation_status == ValidationStatus.VERIFIED
+    assert verified_fact.confidence == ConfidenceLevel.HIGH
+
+
+def test_verification_engine_checks_are_unaffected_since_the_gap_is_now_closed_upstream():
+    """
+    Extends the original finding's own observation — none of
+    verification-engine's checks inspect `confidence` — but notes that
+    this no longer matters for the inflated-PROVISIONAL case specifically,
+    since that combination can no longer exist as a constructed UAP for
+    any of these checks to receive in the first place. The checks
+    themselves are genuinely unchanged (out of this task's scope), so
+    they're re-run here against a validly-constructed MODERATE-confidence
+    PROVISIONAL fact instead, to confirm nothing else broke.
+    """
+    valid_fact = UAP(
+        subject="Bank of England signalled a rate cut",
+        information_class=InformationClass.FACT,
+        validation_status=ValidationStatus.PROVISIONAL,
+        result="Bank of England signalled a rate cut",
+        source="Illustrative Wire Service — not a real data source",
+        producer="data-engine (test)",
+        confidence=ConfidenceLevel.MODERATE,
     )
 
-
-def test_pydantic_model_construction_raises_no_error():
-    """
-    THE ADVERSARIAL FINDING: constructing a PROVISIONAL FACT with
-    confidence=HIGH raises nothing at all — no ValidationError, no
-    warning. UAP has no model_validator relating these two fields (see
-    shared/optifi_shared/uap.py — confidence and validation_status are
-    each validated independently, never against each other).
-    """
-    inflated = _inflated_fact()  # would raise here if anything guarded this
-    assert inflated.validation_status == ValidationStatus.PROVISIONAL
-    assert inflated.confidence == ConfidenceLevel.HIGH
-
-
-def test_no_verification_engine_check_notices_the_inconsistency_either():
-    """
-    Extends the finding across verification-engine: none of its checks
-    inspect `confidence` at all, so an inflated-confidence PROVISIONAL
-    fact sails through every one of them with no flag, note, or
-    downgrade — not because it was checked and found acceptable, but
-    because confidence vs. validation_status consistency is not
-    something any of these functions look at.
-    """
-    inflated = _inflated_fact()
-
-    # check_provenance_resolvable: only inspects provenance_chain.
-    provenance_verdict = check_provenance_resolvable(inflated, known_packets={inflated.id: inflated})
+    provenance_verdict = check_provenance_resolvable(valid_fact, known_packets={valid_fact.id: valid_fact})
     assert provenance_verdict.verdict_type.value == "PASS"
 
-    # audit_corroboration requires VERIFIED input to even run — so the
-    # inflated PROVISIONAL fact can't reach this check at all yet, which
-    # itself means nothing here catches it either; it simply isn't in
-    # scope.
     with pytest.raises(ValueError):
-        audit_corroboration(inflated, sources_used=[])
+        audit_corroboration(valid_fact, sources_used=[])
 
-    # verify_optimisation_candidate operates on plain weight dicts, not
-    # UAPs — confidence never even enters its inputs. Included to show
-    # the inconsistency has no surface area anywhere in this function
-    # either, not because it was deliberately excluded from scope here.
     verdict = verify_optimisation_candidate(
         {"A": 1.0}, {"A": 0.05}, target_return=0.05, min_weight=0.0, max_weight=1.0
     )
     assert verdict.verdict_type.value == "PASS"
 
 
-def test_confidence_can_be_set_to_any_level_regardless_of_validation_status():
+def test_re_test_only_settled_statuses_permit_high_moderate_and_low_remain_unrestricted():
     """
-    Broader confirmation: every validation_status/confidence combination
-    constructs successfully, including the semantically strangest ones
-    (REJECTED+HIGH, CONFLICTED+HIGH) — proving this isn't narrowly about
-    PROVISIONAL+HIGH, but that the two fields are fully uncoupled
-    everywhere in the current model.
+    RE-TEST (post-fix) of the original broad sweep: every
+    validation_status/confidence combination used to construct
+    successfully. Now, HIGH is gated to VERIFIED/SUPERSEDED specifically
+    — MODERATE and LOW remain fully unrestricted across every status,
+    confirming the fix is precisely scoped to HIGH, not a general
+    tightening of the model.
     """
+    settled_statuses = {ValidationStatus.VERIFIED, ValidationStatus.SUPERSEDED}
+
     for validation_status in ValidationStatus:
         for confidence in ConfidenceLevel:
-            uap = UAP(
+            kwargs = dict(
                 subject="test",
                 information_class=InformationClass.FACT,
                 validation_status=validation_status,
@@ -97,5 +119,10 @@ def test_confidence_can_be_set_to_any_level_regardless_of_validation_status():
                 producer="test producer",
                 confidence=confidence,
             )
-            assert uap.validation_status == validation_status
-            assert uap.confidence == confidence
+            if confidence == ConfidenceLevel.HIGH and validation_status not in settled_statuses:
+                with pytest.raises(ValidationError, match="HIGH"):
+                    UAP(**kwargs)
+            else:
+                uap = UAP(**kwargs)
+                assert uap.validation_status == validation_status
+                assert uap.confidence == confidence

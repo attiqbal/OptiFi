@@ -28,6 +28,9 @@ def _make_candidate(result) -> UAP:
 
 
 def _make_framed(subject: str, dependencies: list[str], result) -> UAP:
+    # MODERATE, not HIGH: PROVISIONAL (frame_candidate's own output
+    # status) does not permit HIGH confidence under UAP's own
+    # model-level guardrail (shared/optifi_shared/uap.py).
     return UAP(
         subject=subject,
         information_class=InformationClass.JUDGEMENT,
@@ -35,7 +38,7 @@ def _make_framed(subject: str, dependencies: list[str], result) -> UAP:
         result=result,
         source="ai-engine candidate framing (test)",
         producer="ai-engine (test)",
-        confidence=ConfidenceLevel.HIGH,
+        confidence=ConfidenceLevel.MODERATE,
         dependencies=dependencies,
     )
 

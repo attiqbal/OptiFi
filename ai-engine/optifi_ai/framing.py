@@ -22,9 +22,21 @@ override_reason, which is then recorded in the output's own limitations
 — the "logged" half of "explicit, logged override." Deliberately scoped
 to REJECTED only: CONFLICTED/STALE/INCOMPLETE are not blocked here (a
 separate, future consideration, not this fix).
+
+Confidence capping: this function's own output always carries
+validation_status=PROVISIONAL, regardless of the input candidate's
+status — framing is interpretive and Stage 11's independent check hasn't
+run on it yet, so it can never itself be more settled than PROVISIONAL.
+UAP's own model-level guardrail (shared/optifi_shared/uap.py) requires
+HIGH confidence to pair with a settled status (VERIFIED/SUPERSEDED).
+Forwarding a HIGH-confidence input candidate's confidence unchanged
+would therefore always fail to construct — capped at MODERATE instead,
+since forwarding is otherwise the correct default (a candidate's own
+stated confidence is meaningful context for the framing) and MODERATE is
+the highest confidence a PROVISIONAL packet is allowed to claim.
 """
 
-from optifi_shared import InformationClass, UAP, ValidationStatus
+from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
 
 from .generator import ExplanationGenerator
 
@@ -66,6 +78,13 @@ def frame_candidate(
     }
     narrative = generator.generate(prompt, context)
 
+    # This output is always PROVISIONAL (see module docstring), so HIGH
+    # confidence is never a valid pairing regardless of what the input
+    # candidate itself claimed — capped, not forwarded blindly.
+    output_confidence = (
+        ConfidenceLevel.MODERATE if candidate.confidence == ConfidenceLevel.HIGH else candidate.confidence
+    )
+
     return UAP(
         subject=candidate.subject,
         information_class=InformationClass.JUDGEMENT,
@@ -73,7 +92,7 @@ def frame_candidate(
         result={"narrative": narrative, "original_figures": candidate.result},
         source="ai-engine candidate framing",
         producer="ai-engine / candidate framing, AI_ENGINE_SPEC.md Section 3.2",
-        confidence=candidate.confidence,
+        confidence=output_confidence,
         dependencies=[candidate.id, *(u.id for u in upstream_context)],
         limitations=[override_note] if override_note else [],
     )

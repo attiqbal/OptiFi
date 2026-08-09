@@ -4,10 +4,21 @@ Attack 2 — Corroboration String-Matching Robustness.
 ANALYTICAL_CONTRACT_SPEC.md Section 4a requires independent corroboration
 that "does not share a common upstream origin" — its own worked example
 is "two outlets both republishing the same wire report... does not
-count." This attack asks: does corroborate_fact's actual independence
-check understand that "BBC," "BBC News," and "bbc.co.uk" plausibly name
-the same real-world outlet, or does it only compare source strings for
-exact equality?
+count." This attack originally found that corroborate_fact's independence
+check was exact string equality on `source`, so "BBC News" (etc.) was
+wrongly accepted as independent from "BBC."
+
+UPDATE (post-fix): corroborate_fact's independence check now normalizes
+case/whitespace and checks substring relationships in either direction
+(data-engine/optifi_data/corroboration.py's `_same_origin`). This is a
+bounded improvement, not full entity resolution — see
+test_full_corporate_name_remains_a_known_limitation below for the
+specific pair that is still not caught, and
+data-engine/tests/test_corroboration.py for the complete, empirically-
+verified results for all four original variants (one of which —
+"bbc.co.uk" — turned out to be caught too, a stronger result than
+assumed when this fix was scoped; reported honestly there rather than
+silently matching the original prediction).
 """
 
 from optifi_data import corroborate_fact
@@ -26,33 +37,31 @@ def _make_fact(source: str) -> UAP:
     )
 
 
-def test_differently_worded_same_outlet_is_wrongly_treated_as_independent():
+def test_re_test_differently_worded_same_outlet_now_correctly_rejected():
     """
-    THE ADVERSARIAL FINDING: corroborate_fact's independence check is
-    exact string equality on `source` (`candidate.source not in
-    seen_sources`). "BBC News" is not the string "BBC", so it is
-    accepted as a genuinely independent corroborating source — even
-    though a human would immediately recognise both plausibly name the
-    same real-world outlet, which Section 4a's own wire-report example
-    says must NOT count.
+    RE-TEST (post-fix), the exact original scenario: "BBC News" is no
+    longer wrongly accepted as independent from "BBC" — the fact remains
+    PROVISIONAL rather than being upgraded on the strength of a single
+    reworded mention of the same outlet.
     """
     provisional_fact = _make_fact(source="BBC")
     same_outlet_reworded = _make_fact(source="BBC News")
 
     corroborated = corroborate_fact(provisional_fact, [same_outlet_reworded])
 
-    # The gap: this upgrades to VERIFIED on the strength of a single
-    # source that is very plausibly the same outlet as the original,
-    # just worded differently.
-    assert corroborated.validation_status == ValidationStatus.VERIFIED
+    assert corroborated.validation_status == ValidationStatus.PROVISIONAL
+    assert corroborated.evidence == []
 
 
-def test_three_variants_of_the_same_outlet_all_count_as_separately_independent():
+def test_re_test_three_variants_only_the_genuinely_unmatched_one_still_counts():
     """
-    Worse: because the check is purely pairwise string inequality, EVERY
-    differently-worded variant of the same outlet counts as yet another
-    independent source, stacking up "independent" corroboration entries
-    that are actually all the same outlet.
+    RE-TEST (post-fix), the exact original scenario: of the three
+    variants, "BBC News" and "bbc.co.uk" are now correctly recognised as
+    the same origin and excluded. "British Broadcasting Corporation" is
+    the one genuine remaining limitation — it shares no substring with
+    "bbc" after normalization, so it still counts, and the fact still
+    upgrades to VERIFIED on the strength of that one variant alone (not
+    three, as before this fix).
     """
     provisional_fact = _make_fact(source="BBC")
     variants = [
@@ -65,16 +74,33 @@ def test_three_variants_of_the_same_outlet_all_count_as_separately_independent()
 
     assert corroborated.validation_status == ValidationStatus.VERIFIED
     independent_entries = [e for e in corroborated.evidence if e.startswith("independent source:")]
-    assert len(independent_entries) == 3  # all three "count" despite being one real outlet
+    assert len(independent_entries) == 1
+    assert "British Broadcasting Corporation" in independent_entries[0]
+    assert not any("BBC News" in e for e in independent_entries)
+    assert not any("bbc.co.uk" in e for e in independent_entries)
+
+
+def test_full_corporate_name_remains_a_known_limitation():
+    """
+    The honest, documented remaining gap: "British Broadcasting
+    Corporation" shares no substring with "bbc" after normalization, so
+    the bounded heuristic still treats it as genuinely independent from
+    "BBC" — real entity resolution, not attempted here, would be needed
+    to close this specific case.
+    """
+    provisional_fact = _make_fact(source="BBC")
+    full_corporate_name = _make_fact(source="British Broadcasting Corporation")
+
+    corroborated = corroborate_fact(provisional_fact, [full_corporate_name])
+
+    assert corroborated.validation_status == ValidationStatus.VERIFIED
 
 
 def test_control_genuinely_different_outlets_correctly_count_as_independent():
     """
-    Control case, to isolate the actual gap: genuinely distinct outlets
-    (not a wording variant of the same one) SHOULD count as independent
-    — confirming the mechanism isn't broken outright, only that it can't
-    distinguish "differently worded, same outlet" from "actually
-    different outlet."
+    Control case: genuinely distinct outlets (not a wording variant of
+    the same one) still correctly count as independent — confirming the
+    fix doesn't over-trigger.
     """
     provisional_fact = _make_fact(source="BBC")
     genuinely_different = _make_fact(source="Financial Times")
@@ -86,9 +112,8 @@ def test_control_genuinely_different_outlets_correctly_count_as_independent():
 
 def test_exact_duplicate_source_string_is_correctly_rejected():
     """
-    Control case: the ONE thing the exact-string check does correctly
-    catch is a literal duplicate string — confirming the check isn't
-    completely absent, just too narrow to catch superficial rewording.
+    Control case: a literal duplicate string was already correctly
+    caught before this fix, and remains so.
     """
     provisional_fact = _make_fact(source="BBC")
     literal_republication = _make_fact(source="BBC")

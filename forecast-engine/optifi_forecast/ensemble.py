@@ -44,31 +44,38 @@ _ERROR_EPSILON = 1e-9
 
 # Confidence-from-spread heuristic thresholds. FORECAST_ENGINE_SPEC.md
 # Section 6 requires that low agreement widen uncertainty, but specifies
-# no thresholds — these cut-points on the *relative* spread (population
-# stdev of inputs, divided by the scale of their mean) are a reasonable,
+# no thresholds — this cut-point on the *relative* spread (population
+# stdev of inputs, divided by the scale of their mean) is a reasonable,
 # documented heuristic chosen here, not a value fixed anywhere in the
 # specification.
-_RELATIVE_SPREAD_HIGH_CONFIDENCE_MAX = 0.10
 _RELATIVE_SPREAD_MODERATE_CONFIDENCE_MAX = 0.30
 _SCALE_EPSILON = 1e-9
 
 
 def _confidence_from_spread(values: list[float]) -> ConfidenceLevel:
     """
-    Map the relative spread of `values` to a ConfidenceLevel:
-    low spread -> HIGH, moderate spread -> MODERATE, high spread -> LOW.
+    Map the relative spread of `values` to a ConfidenceLevel: low or
+    moderate spread -> MODERATE, high spread -> LOW.
+
+    Never returns HIGH, even for perfectly clustered inputs (spread ~0):
+    both callers below construct an ensemble UAP with validation_status
+    hardcoded PROVISIONAL, and UAP's own model-level guardrail
+    (shared/optifi_shared/uap.py) requires HIGH confidence to pair with a
+    settled status (VERIFIED/SUPERSEDED). Internal agreement among the
+    input models is not the same thing as external corroboration, so it
+    should never by itself justify claiming HIGH confidence on an
+    uncorroborated estimate — MODERATE is the ceiling here regardless of
+    how tightly the inputs agree.
     """
     if len(values) == 1:
-        return ConfidenceLevel.HIGH  # no disagreement possible with one input
+        return ConfidenceLevel.MODERATE  # no disagreement possible, but still uncorroborated
 
     mean_val = statistics.mean(values)
     stdev_val = statistics.pstdev(values)
     scale = max(abs(mean_val), _SCALE_EPSILON)
     relative_spread = stdev_val / scale
 
-    if relative_spread <= _RELATIVE_SPREAD_HIGH_CONFIDENCE_MAX:
-        return ConfidenceLevel.HIGH
-    elif relative_spread <= _RELATIVE_SPREAD_MODERATE_CONFIDENCE_MAX:
+    if relative_spread <= _RELATIVE_SPREAD_MODERATE_CONFIDENCE_MAX:
         return ConfidenceLevel.MODERATE
     else:
         return ConfidenceLevel.LOW

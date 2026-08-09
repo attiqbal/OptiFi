@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class InformationClass(str, Enum):
@@ -200,3 +200,36 @@ class UAP(BaseModel):
             "model covers every field Section 5 actually defines."
         ),
     )
+
+    # `information_class` and `validation_status` are explicitly two
+    # independent axes (Section 3 vs. Section 4) — that independence is
+    # about *meaning*, not about every combination being internally
+    # sensible. HIGH confidence is a claim of strong trust in the result;
+    # VERIFIED and SUPERSEDED are the only two validation_status values
+    # that represent a settled, resolved outcome (SUPERSEDED was VERIFIED
+    # or otherwise settled at the time, just since replaced by a newer
+    # official release of the same fact — see Section 4's definition). A
+    # PROVISIONAL, CONFLICTED, STALE, INCOMPLETE, or REJECTED claim is, by
+    # definition, not settled — so claiming HIGH confidence alongside one
+    # of those statuses is an internally inconsistent combination, not a
+    # legitimate independent-axis pairing. Capped at MODERATE, not
+    # rejected outright: a not-yet-settled claim can still carry
+    # meaningful, moderate trust.
+    _HIGH_CONFIDENCE_ALLOWED_STATUSES = (ValidationStatus.VERIFIED, ValidationStatus.SUPERSEDED)
+
+    @model_validator(mode="after")
+    def _high_confidence_requires_settled_status(self) -> "UAP":
+        if (
+            self.confidence == ConfidenceLevel.HIGH
+            and self.validation_status not in self._HIGH_CONFIDENCE_ALLOWED_STATUSES
+        ):
+            raise ValueError(
+                "UAP: confidence=HIGH is only permitted when validation_status "
+                "is VERIFIED or SUPERSEDED (the only two statuses representing "
+                f"a settled, resolved outcome); got validation_status="
+                f"{self.validation_status!r} with confidence=HIGH. A "
+                "PROVISIONAL, CONFLICTED, STALE, INCOMPLETE, or REJECTED claim "
+                "cannot simultaneously claim HIGH confidence — lower confidence "
+                "to MODERATE or LOW, or resolve validation_status first."
+            )
+        return self
