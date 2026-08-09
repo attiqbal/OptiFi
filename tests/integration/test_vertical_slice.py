@@ -11,7 +11,7 @@ implemented engines using only functions that already exist, unmodified:
   causal-engine       -> CausalClaim
   simulation-engine   -> ScenarioResult
   quant-engine        -> covariance_matrix, portfolio_variance, parametric_var
-  optimisation-engine -> minimize_variance
+  optimisation-engine -> minimize_variance_with_loss_cap
   verification-engine -> verify_optimisation_candidate, verify_loss_cap_candidate,
                           check_provenance_resolvable
   ai-engine           -> group_by_disagreement_set, has_genuine_disagreement,
@@ -22,22 +22,25 @@ Every input is illustrative and clearly labeled as such, consistent with
 every prior task in this project. No real data source or LLM provider is
 used anywhere — StubExplanationGenerator is the only generator.
 
-Two points of friction with the task's stated premise, both resolved
-without modifying any existing package (see the module-level comments at
-the relevant construction sites below for detail):
+One point of remaining friction with the task's stated premise, resolved
+without modifying any existing package (see the module-level comment at
+the relevant construction site below for detail): causal-engine's only
+existing illustrative example is a UK-base-rate -> mortgage-refinancing-
+rate claim — no Gilts causal claim exists to "reuse" as originally
+assumed. All three asset-specific CausalClaim instances (Gilts, Bank
+Equities, Property) are constructed directly in this test, following
+example_rate_cut_mortgage_claim's exact pattern, using only the
+unmodified CausalClaim class.
 
-1. `minimize_variance_with_loss_cap` does not exist anywhere in
-   optimisation-engine — only Section 5.1's `minimize_variance` is
-   implemented. This slice calls `minimize_variance` with a target_return
-   chosen (via numeric prototyping) so the resulting candidate already
-   satisfies the mandate's loss cap, then verifies that independently
-   with `verify_loss_cap_candidate` exactly as it exists.
-2. causal-engine's only existing illustrative example is a UK-base-rate
-   -> mortgage-refinancing-rate claim — no Gilts causal claim exists to
-   "reuse" as the task's premise assumed. All three asset-specific
-   CausalClaim instances (Gilts, Bank Equities, Property) are constructed
-   directly in this test, following example_rate_cut_mortgage_claim's
-   exact pattern, using only the unmodified CausalClaim class.
+Step 6 originally used `minimize_variance` (the uncapped solver) as a
+workaround, since `minimize_variance_with_loss_cap` did not exist yet.
+It now exists, with real loss-cap enforcement and optional
+`covariance_source_id`/`expected_returns_source_id` parameters — Step 6
+uses it directly, and `candidate.dependencies` now genuinely resolves
+through to the covariance matrix UAP computed in Step 5, closing the
+provenance gap the original vertical slice left open (see the Step 6
+comment below for why `expected_returns_source_id` is deliberately left
+unset).
 """
 
 from __future__ import annotations
@@ -58,7 +61,7 @@ from optifi_causal import CausalClaim
 from optifi_data import corroborate_fact
 from optifi_forecast import inverse_error_weighted_ensemble
 from optifi_forecast.examples import EXAMPLE_HISTORICAL_ERRORS
-from optifi_optimisation import minimize_variance
+from optifi_optimisation import minimize_variance_with_loss_cap
 from optifi_quant import covariance_matrix, parametric_var, portfolio_variance
 from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
 from optifi_simulation import ScenarioResult
@@ -317,8 +320,29 @@ def vertical_slice() -> dict:
     # Gilts/Property — consistent with the causal/scenario story above —
     # while keeping the recomputed VaR comfortably under the $50,000 cap.
     target_return = 0.05
-    candidate = minimize_variance(
-        expected_returns, covariance, target_return=target_return, min_weight=0.0, max_weight=1.0
+    # covariance_source_id: the real, resolvable link that was missing
+    # before minimize_variance_with_loss_cap existed — cov_uap.id is a
+    # genuine upstream UAP from Step 5, registered in the chain above.
+    #
+    # expected_returns_source_id: deliberately left unset. expected_returns
+    # blends each asset's baseline synthetic annual mean with a scenario-
+    # informed adjustment, but only UK_Gilts' adjustment is actually equal
+    # to a real UAP field (scenario_gilts.base_case) — UK_Bank_Equities and
+    # UK_Property use illustrative deltas "in line with" but not equal to
+    # scenario_bank_equities.base_case / scenario_property.base_case (see
+    # the comment above). There is no single UAP that cleanly represents
+    # "the source of expected_returns" as a whole, so no id is supplied
+    # here rather than inventing one that overstates the real provenance.
+    candidate = minimize_variance_with_loss_cap(
+        expected_returns,
+        covariance,
+        target_return,
+        portfolio_value=PORTFOLIO_VALUE,
+        max_single_period_loss=MAX_SINGLE_PERIOD_LOSS,
+        confidence_level=CONFIDENCE_LEVEL,
+        min_weight=0.0,
+        max_weight=1.0,
+        covariance_source_id=cov_uap.id,
     )
     _register(candidate)
 
@@ -424,6 +448,66 @@ def test_step6_candidate_weights_sum_to_one_and_respect_bounds(vertical_slice):
         assert -1e-6 <= w <= 1.0 + 1e-6
 
 
+def test_step6_candidate_now_references_the_real_covariance_source(vertical_slice):
+    """
+    Gap 2 fix (Commit 9ca118c) closed the loop this vertical slice
+    originally left open: the candidate's dependencies/provenance_chain
+    are no longer empty — they now genuinely resolve to the covariance
+    matrix UAP computed in Step 5.
+    """
+    candidate = vertical_slice["candidate"]
+    cov_uap = vertical_slice["cov_uap"]
+    assert cov_uap.id in candidate.dependencies
+    assert cov_uap.id in candidate.provenance_chain
+
+
+def test_step6_loss_cap_is_independently_confirmed_within_mandate(vertical_slice):
+    """
+    Confirms the cap is genuinely satisfied in this pipeline — recomputed
+    independently via quant-engine's own functions (mirroring what
+    verify_loss_cap_candidate does internally), not merely trusted from
+    the solver's self-reported figure or from the isolated unit tests.
+    """
+    candidate = vertical_slice["candidate"]
+    cov_uap = vertical_slice["cov_uap"]
+    weights = candidate.result["weights"]
+
+    independently_recomputed_pv = portfolio_variance(weights, cov_uap.result)
+    independently_recomputed_var = parametric_var(
+        portfolio_value=PORTFOLIO_VALUE,
+        portfolio_std_dev=independently_recomputed_pv.result**0.5,
+        confidence_level=CONFIDENCE_LEVEL,
+    ).result
+
+    assert independently_recomputed_var <= MAX_SINGLE_PERIOD_LOSS
+    assert independently_recomputed_var == pytest.approx(candidate.result["value_at_risk"], rel=1e-9)
+    assert vertical_slice["loss_cap_verdict"].verdict_type == VerdictType.PASS
+
+
+def test_step6_loss_cap_parameter_is_not_inert_for_this_scenarios_real_data(vertical_slice):
+    """
+    In this particular scenario the $50,000 cap turns out not to be the
+    binding constraint (the natural minimum-variance portfolio at
+    target_return=0.05 already sits well under it) — so this test proves
+    the constraint is genuinely wired into the solver for THIS scenario's
+    actual expected_returns/covariance, not merely present in the
+    function signature: re-solving with the exact same inputs but an
+    artificially tiny cap must reject, using this scenario's real numbers
+    rather than a synthetic example from the unit tests.
+    """
+    with pytest.raises(ValueError, match="loss cap"):
+        minimize_variance_with_loss_cap(
+            vertical_slice["expected_returns"],
+            vertical_slice["cov_uap"].result,
+            vertical_slice["target_return"],
+            portfolio_value=PORTFOLIO_VALUE,
+            max_single_period_loss=1.0,  # artificially tiny — must bind
+            confidence_level=CONFIDENCE_LEVEL,
+            min_weight=0.0,
+            max_weight=1.0,
+        )
+
+
 def test_step7_all_three_verification_checks_pass(vertical_slice):
     assert vertical_slice["opt_verdict"].verdict_type == VerdictType.PASS
     assert vertical_slice["loss_cap_verdict"].verdict_type == VerdictType.PASS
@@ -506,6 +590,17 @@ def test_evidence_chain_from_stage13_output_reaches_fact_causal_claims_and_scena
         assert claim.id in reached, f"chain does not reach causal claim: {claim.subject}"
     for scenario in vertical_slice["scenario_results"]:
         assert scenario.id in reached, f"chain does not reach scenario result: {scenario.subject}"
+
+    # The new link (Gap 2 fix): candidate.dependencies is no longer
+    # empty — it now resolves through to the real covariance matrix UAP
+    # from Step 5, so the candidate is no longer a leaf node in this
+    # traversal. Asserted at both ends: the direct edge exists on the
+    # candidate itself, AND the recursive walk from the Stage 13 output
+    # actually reaches it — proving the new link is walked, not just
+    # present somewhere in the registry.
+    cov_uap = vertical_slice["cov_uap"]
+    assert cov_uap.id in vertical_slice["candidate"].dependencies, "candidate no longer references its covariance source"
+    assert cov_uap.id in reached, "chain does not reach the covariance matrix UAP via the candidate"
 
     # Also confirm the intermediate hops that carry the chain are actually
     # present, not just its final targets — proves genuine multi-hop
