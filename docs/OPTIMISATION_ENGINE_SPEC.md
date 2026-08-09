@@ -1,6 +1,6 @@
 # OPTIMISATION_ENGINE_SPEC
 
-**Status:** DRAFT (v1.1 — Phase 9, patch: Section 10 item 4 follow-up closed)
+**Status:** DRAFT (v1.2 — Phase 9, patch: loss cap documented, Section 10 item 1 resolved)
 
 ## 1. Purpose & Scope
 
@@ -53,6 +53,23 @@ constraint set (Section 6).
 Solved across a range of `R_target` values, this traces the efficient
 frontier (Section 5.3).
 
+### 5.1a Loss-Capped Variant
+
+Implemented as `minimize_variance_with_loss_cap`, alongside the base
+Section 5.1 solver. Adds one constraint to the same convex problem:
+
+`Z_α × √(wᵀΣw) × portfolio_value ≤ max_single_period_loss`
+
+where `Z_α` is derived from a stated confidence level (typically 95%)
+via the same approach `quant-engine`'s `parametric_var` uses. This
+caps the portfolio's single-period Value-at-Risk directly inside the
+solver — a candidate that would breach the cap is infeasible to
+produce, not generated and then flagged. This is distinct from the
+Mandate's "maximum acceptable drawdown" (a multi-period, peak-to-trough
+notion) — see Section 6 below for how it fits the constraint taxonomy,
+and `DATA_ARCHITECTURE.md` Section 4.1 for the Mandate parameter this
+draws from.
+
 ### 5.2 Maximum Sharpe Ratio (Tangency Portfolio)
 An alternative objective, useful when no specific target return is
 supplied:
@@ -73,7 +90,9 @@ the frontier is what makes that sub-score computable at all.
 
 - **Hard constraints** — must never be violated: leverage prohibition (if
   set), hard exclusions, maximum individual-position and sector-allocation
-  limits, crypto ceiling, minimum cash reserve — all from the Mandate
+  limits, crypto ceiling, minimum cash reserve, a maximum single-period
+  loss (VaR-based, per Section 5.1a), sourced from the Mandate's
+  `max_single_period_loss` parameter — all from the Mandate
   (`DATA_ARCHITECTURE.md` Section 4.1). Violation → automatic `REJECT` in
   Stage 9b.
 - **Soft constraints / preferences** — e.g. ESG preferences. Violation →
@@ -130,8 +149,10 @@ them, consistent with its existing permission to do so
 
 ## 10. Known Gaps / Open Questions
 
-1. The exact numerical optimisation method (e.g. quadratic programming) is
-   not specified — an implementation choice for later.
+1. ~~The exact numerical optimisation method...~~ **RESOLVED:** both
+   `minimize_variance` and `minimize_variance_with_loss_cap` use `cvxpy`
+   to solve a convex quadratic program — the example this item itself
+   named.
 2. Whether a soft/ESG constraint violation should `FLAG` a candidate or
    merely deprioritise it (Section 6) is not decided.
 3. How ties between multiple equally-optimal candidates (Section 9) are
@@ -142,3 +163,7 @@ them, consistent with its existing permission to do so
    item is marked resolved, citing this document's Section 4. A later
    patch also corrected two further stale references to the same fact in
    that document's Sections 8 and 9.
+5. The exact confidence level used for the loss cap's VaR calculation
+   (typically 95% in examples so far) is not fixed as a default —
+   calibration against real use remains open, consistent with
+   `QUANT_ENGINE_SPEC.md`'s existing calibration deferrals.

@@ -1,6 +1,6 @@
 # ECONOMIC_ONTOLOGY
 
-**Status:** DRAFT (v1 — Phase 5-2)
+**Status:** DRAFT (v1.1 — Phase 5-2, patch: Section 7 item 3 resolved — subject proposal not adopted)
 
 ## 1. Purpose & Scope
 
@@ -37,15 +37,15 @@ Live values are `FACT`/`ESTIMATE` output flowing through the pipeline
 and causal links. Causal relationships specifically are `causal-engine`'s
 Stage 5 output — see Section 6.
 
-## 4. Entity Identifiers & the `subject` Field
+## 4. Entity Identifiers
 
-Every entity in this ontology has a stable identifier. Per
-`DATA_ARCHITECTURE.md` Section 6's proposal, a Universal Analytical Packet's
-`subject` field is composed of one of these identifiers plus a question-type
-qualifier. This document is the anchor for that proposal — an identifier
-minted here is what makes a `subject` value structured rather than free
-text. Confirming this as the final mechanism (versus an alternative) is not
-done in this task — see Section 7.
+Every entity in this ontology has a stable identifier, used for
+`cause_entity_id`, `effect_entity_id`, and `affected_entity_id` fields
+in `causal-engine` and `simulation-engine`. The earlier proposal that
+these identifiers also anchor `subject` values
+(`DATA_ARCHITECTURE.md` Section 6) was considered and **not adopted** —
+`subject` uses free natural-language text across all implemented
+engines. See `DATA_ARCHITECTURE.md` Section 6 for the full resolution.
 
 ## 5. Governance
 
@@ -71,8 +71,9 @@ keeps causal claims structured and traceable, consistent with the
    is not resolved in either document.
 2. Which specific external classification standards to adopt (Section 3)
    is an operational decision, not made here.
-3. Whether the `subject` proposal (Section 4) is the final mechanism, or
-   one of several considered, is not confirmed.
+3. ~~Whether the `subject` proposal...~~ **RESOLVED:** not adopted —
+   `subject` uses free natural-language text; see
+   `DATA_ARCHITECTURE.md` Section 6.
 4. How entity identifiers are versioned when an entity's classification
    changes (e.g. a company changes sector) is not addressed.
 5. Whether this ontology needs its own audit/verification process, similar

@@ -1,6 +1,6 @@
 # DATA_ARCHITECTURE
 
-**Status:** DRAFT (v1.1 — Phase 5-1, patch: Capital Efficiency ownership follow-up)
+**Status:** DRAFT (v1.3 — Phase 5-1, patch: subject field resolved as free text)
 
 ## 1. Purpose & Scope
 
@@ -40,7 +40,9 @@ never reconfirmed; see Section 7.
 Parameters: risk tolerance, maximum acceptable drawdown, investment
 horizon, minimum cash reserve, maximum individual-position allocation,
 maximum sector allocation, crypto ceiling, leverage policy, stated
-objective.
+objective, maximum single-period loss (a VaR-based ceiling, distinct
+from maximum acceptable drawdown — see `OPTIMISATION_ENGINE_SPEC.md`
+Section 5.1a for how it constrains the solver).
 
 ### 4.2 Assets
 Cash, deposits, equities, funds, bonds, property, trust holdings, and
@@ -76,19 +78,30 @@ country, currency, issuer) per user. This keeps classification data
 centralised and consistent — if a company's sector classification changes,
 it changes once in the Ontology, not once per user holding it.
 
-## 6. Proposal: Resolving the `subject` Identifier Question
+## 6. Resolved: `subject` Uses Free Natural-Language Text
 
-`ANALYTICAL_CONTRACT_SPEC.md` (Section 9, items 3 and 5) left open what
-governs `subject` identifiers and who issues them. Proposal: a `subject`
-identifier is composed of an `ECONOMIC_ONTOLOGY.md` entity identifier plus a
-question-type qualifier — for example, an entity identifier for "UK economy"
-combined with a qualifier like "recession probability, 12-month horizon."
-This gives competing model outputs a structured, non-arbitrary basis for
-grouping, rather than free text that different engines might phrase
-differently for the same underlying question. **This is a proposed
-mechanism, not a governance answer** — who is authorised to mint new
-Ontology entities (and therefore new possible `subject` roots) is addressed
-in `ECONOMIC_ONTOLOGY.md` Section 5, and remains open there.
+This section originally proposed that a `subject` value be composed of
+an `ECONOMIC_ONTOLOGY.md` entity identifier plus a question-type
+qualifier. **That proposal was not adopted.** Across all seven
+implemented engines (~35 call sites in the current codebase), `subject`
+values are consistently free natural-language text — e.g. "CIO synthesis
+across disagreement groups," "minimum-variance portfolio: A, B, C" —
+matching the style of the original example in
+`ANALYTICAL_CONTRACT_SPEC.md` Section 5 itself ("US recession
+probability, 12-month horizon"), which was never structured either. Free
+text is the confirmed standard going forward, not an interim stopgap.
+
+This does not fully resolve the risk the original proposal was trying to
+prevent — different engines phrasing the same underlying question
+differently, which would silently break the `disagreement_set_ref`
+grouping mechanism (`ANALYTICAL_CONTRACT_SPEC.md` Section 7). Nothing
+currently enforces consistent phrasing for the same question — see
+Section 8, new item below.
+
+Entity identifiers from `ECONOMIC_ONTOLOGY.md` remain in use elsewhere —
+`cause_entity_id`/`effect_entity_id` in `causal-engine`,
+`affected_entity_id` in `simulation-engine` — just not for constructing
+`subject` values.
 
 ## 7. Mandate Freshness
 
@@ -101,9 +114,10 @@ specifying one; see Section 8.
 
 1. No review/reconfirmation cadence is defined for mandate parameters
    (Section 7) — when they should transition to `STALE` is not decided.
-2. Governance for minting new `ECONOMIC_ONTOLOGY.md` entities (Section 6)
-   is deferred to that document and not resolved there either — both
-   documents currently point at each other on this question.
+2. Governance for minting new `ECONOMIC_ONTOLOGY.md` entities is still
+   open — this no longer relates to `subject` construction (Section 6,
+   resolved), but still applies to entity identifiers used elsewhere
+   (`cause_entity_id`, `effect_entity_id`, `affected_entity_id`).
 3. ~~Which engine computes the Section 4.4 derived characteristics...~~
    **RESOLVED:** `QUANT_ENGINE_SPEC.md` Section 4 formally assigns
    Capital Efficiency Score and Section 4.4's derived characteristics to
@@ -115,3 +129,8 @@ specifying one; see Section 8.
 5. Consent and data protection treatment of the Twin's aggregated personal
    financial data remains deferred to a future document, per
    `REGULATORY_BOUNDARIES.md` Section 3.4.
+6. Now that `subject` is confirmed free text, nothing enforces that two
+   packets about the same underlying question use matching phrasing —
+   a real risk to the `disagreement_set_ref` grouping mechanism that
+   the original structured proposal would have prevented. Not resolved
+   here.

@@ -1,6 +1,6 @@
 # AI_ENGINE_SPEC
 
-**Status:** DRAFT (v1 — Phase 6)
+**Status:** DRAFT (v1.1 — Phase 6, patch: Section 5 item 3 resolved for checkable subset)
 
 ## 1. Purpose & Scope
 
@@ -100,7 +100,11 @@ place:
 2. The technical handoff between `ai-engine`'s Stage 3 extraction output and
    `data-engine`'s corroboration process is not specified — only that
    `data-engine` owns the decision.
-3. Whether the Section 4 "Never" list should become a literal runtime
-   guardrail (e.g. an enforced check before output reaches a user) or
-   remains a design specification implementers must follow is an
-   implementation decision, not made here.
+3. ~~Whether the Section 4 "Never" list should become a literal runtime
+   guardrail...~~ **RESOLVED (partially):** implemented as runtime
+   guardrails for items 2, 3, 8, and 9 — see `ai-engine`'s
+   `frame_candidate`, `synthesize_with_disagreement_preserved`,
+   `extract_structured_claim`, and `explain_with_disclosure`, plus
+   `verification-engine`'s `verify_candidate_framing_unaltered`. Items
+   1, 4, 5, 6, and 7 remain design-specification-only, not yet
+   runtime-enforced.
