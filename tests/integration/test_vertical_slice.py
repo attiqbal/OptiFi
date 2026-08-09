@@ -534,8 +534,31 @@ def test_step8_stage13_output_discloses_non_verified_dependencies(vertical_slice
     stage13_output = vertical_slice["stage13_output"]
     assert vertical_slice["framed_candidate"].id in stage13_output.dependencies
     assert vertical_slice["cio_synthesis"].id in stage13_output.dependencies
-    # both framed_candidate and cio_synthesis are PROVISIONAL, not VERIFIED
-    assert len(stage13_output.limitations) == 2
+
+    joined = " ".join(stage13_output.limitations)
+    # Both framed_candidate and cio_synthesis are PROVISIONAL, not
+    # VERIFIED — the direct disclosure fires for both.
+    assert stage13_output.limitations.count(
+        f"Note: '{vertical_slice['framed_candidate'].subject}' has validation_status=PROVISIONAL, not VERIFIED."
+    ) == 1
+    assert stage13_output.limitations.count(
+        f"Note: '{vertical_slice['cio_synthesis'].subject}' has validation_status=PROVISIONAL, not VERIFIED."
+    ) == 1
+
+    # This call site (Step 8, above) deliberately does not pass
+    # known_uaps, even though the full registry exists — demonstrating
+    # the fix this task adds on top of the earlier known_uaps opt-in:
+    # explain_with_disclosure no longer produces a clean, empty-looking
+    # disclosure just because a caller forgot to pass known_uaps. Both
+    # framed_candidate and cio_synthesis have real upstream dependencies
+    # (the optimisation candidate/causal claims/scenario results, and
+    # the three forecasts, respectively) that go genuinely unresolved
+    # here, and that incompleteness is now explicit rather than silent.
+    assert "could not be resolved" in joined
+    assert vertical_slice["candidate"].id in joined
+    for forecast in vertical_slice["forecasts"]:
+        assert forecast.id in joined
+    assert len(stage13_output.limitations) == 4
 
 
 # === Step 9: the evidence-chain traversal — the actual deliverable ===

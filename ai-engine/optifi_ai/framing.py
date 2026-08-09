@@ -10,6 +10,18 @@ is never given `candidate.result` in its prompt or context, so there is no
 code path through which generated text could end up inside
 `original_figures` — that field is always a direct, untouched copy of
 `candidate.result`.
+
+REJECTED-input guard (VERIFICATION_FRAMEWORK.md Section 8): a REJECTED
+output must not be used downstream without an explicit, logged override.
+Before this fix, nothing enforced that — frame_candidate accepted a
+REJECTED candidate exactly like any other and, worse, unconditionally
+overwrote its own output's validation_status to PROVISIONAL regardless of
+the input's actual status, silently erasing the rejection. Now, a
+REJECTED candidate raises by default; proceeding requires an explicit
+override_reason, which is then recorded in the output's own limitations
+— the "logged" half of "explicit, logged override." Deliberately scoped
+to REJECTED only: CONFLICTED/STALE/INCOMPLETE are not blocked here (a
+separate, future consideration, not this fix).
 """
 
 from optifi_shared import InformationClass, UAP, ValidationStatus
@@ -21,7 +33,27 @@ def frame_candidate(
     candidate: UAP,
     generator: ExplanationGenerator,
     upstream_context: list[UAP] | None = None,
+    override_rejection: bool = False,
+    override_reason: str | None = None,
 ) -> UAP:
+    override_note: str | None = None
+    if candidate.validation_status == ValidationStatus.REJECTED:
+        if not override_rejection:
+            raise ValueError(
+                "frame_candidate: candidate.validation_status is REJECTED. "
+                "A REJECTED output must not be used downstream without an "
+                "explicit, logged override (VERIFICATION_FRAMEWORK.md "
+                "Section 8). Pass override_rejection=True with a real "
+                "override_reason to proceed anyway."
+            )
+        if not override_reason or not override_reason.strip():
+            raise ValueError(
+                "frame_candidate: override_rejection=True requires a "
+                "non-empty override_reason — the override must be "
+                "explicit and logged, not silent."
+            )
+        override_note = f"PROCEEDED DESPITE REJECTED INPUT — override_reason: {override_reason.strip()}"
+
     upstream_context = upstream_context or []
 
     # Deliberately excludes candidate.result: the generator narrates the
@@ -43,4 +75,5 @@ def frame_candidate(
         producer="ai-engine / candidate framing, AI_ENGINE_SPEC.md Section 3.2",
         confidence=candidate.confidence,
         dependencies=[candidate.id, *(u.id for u in upstream_context)],
+        limitations=[override_note] if override_note else [],
     )
