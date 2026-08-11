@@ -111,3 +111,28 @@ def test_minimize_variance_raises_clear_error_on_infeasible_target_return():
 def test_minimize_variance_information_class_is_estimate():
     uap = minimize_variance(EXPECTED_RETURNS, COVARIANCE, target_return=0.09)
     assert uap.information_class == InformationClass.ESTIMATE
+
+
+def test_minimize_variance_raises_when_min_weight_exceeds_max_weight():
+    """Code Quality Verification finding #1/#2: this guard existed but was never exercised."""
+    with pytest.raises(ValueError, match="must not exceed max_weight"):
+        minimize_variance(EXPECTED_RETURNS, COVARIANCE, target_return=0.09, min_weight=0.6, max_weight=0.4)
+
+
+def test_minimize_variance_min_weight_equal_to_max_weight_passes_this_specific_guard():
+    """
+    Exact boundary for `min_weight > max_weight`: equal bounds must NOT
+    trip this guard. 0.6 > 0.4 above doesn't distinguish `>` from a
+    mutant `>=`, since both raise identically for that input — only
+    min_weight == max_weight can. Equal bounds pin every weight to
+    exactly 1/3 (three assets), which then legitimately fails a
+    DIFFERENT check (the fixed portfolio's return doesn't equal
+    target_return=0.09), so this only asserts the specific "must not
+    exceed max_weight" message is absent, not that the call succeeds.
+    """
+    with pytest.raises(ValueError) as exc_info:
+        minimize_variance(
+            EXPECTED_RETURNS, COVARIANCE, target_return=0.09,
+            min_weight=1.0 / 3.0, max_weight=1.0 / 3.0,
+        )
+    assert "must not exceed max_weight" not in str(exc_info.value)

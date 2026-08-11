@@ -36,8 +36,18 @@ class ScenarioResult(UAP):
     Enforces three things beyond the base UAP shape:
 
     1. `information_class` is always ESTIMATE (SIMULATION_ENGINE_SPEC.md
-       Section 7 — scenario output is never FACT or JUDGEMENT). Any other
-       value is rejected at construction.
+       Section 7 — scenario output is never FACT or JUDGEMENT).
+       Precisely: any value explicitly passed other than ESTIMATE is
+       rejected at construction. The field's own default is hardcoded
+       to ESTIMATE, so omitting it is equally safe — but be aware
+       pydantic v2 does not re-run field_validators against a field
+       left at its default value, only against explicitly-passed
+       values. This validator has therefore never actually executed for
+       any construction in this codebase to date, since every current
+       caller relies on the default rather than passing
+       information_class= explicitly; the invariant holds today because
+       the default is correct, not because this check is continuously
+       re-verifying it.
     2. The mandatory-range guardrail (SIMULATION_ENGINE_SPEC.md Section 8:
        "every simulation output carries a base case plus a range, not a
        single value"): `range_low` and `range_high` are both required
@@ -55,8 +65,10 @@ class ScenarioResult(UAP):
         default=InformationClass.ESTIMATE,
         description=(
             "Fixed to ESTIMATE for every ScenarioResult "
-            "(SIMULATION_ENGINE_SPEC.md, Section 7). Any other value is "
-            "rejected at construction."
+            "(SIMULATION_ENGINE_SPEC.md, Section 7). Any value "
+            "explicitly passed other than ESTIMATE is rejected at "
+            "construction; see the class docstring for the pydantic "
+            "defaulted-field nuance this implies."
         ),
     )
 

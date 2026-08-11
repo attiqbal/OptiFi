@@ -27,6 +27,21 @@ from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStat
 # because we asked for that constraint — verify it on the actual result.
 _WEIGHTS_SUM_TOLERANCE = 1e-6
 
+# Separate, deliberately distinct constant for the loss-cap re-verification
+# guard (see minimize_variance_with_loss_cap below) — NOT the same
+# tolerance as _WEIGHTS_SUM_TOLERANCE above, even though both currently
+# happen to equal 1e-6. _WEIGHTS_SUM_TOLERANCE bounds a dimensionless
+# quantity (weights summing to ~1.0); this one bounds a recomputed VaR
+# against a Mandate loss cap that can be tens of thousands of pounds —
+# a completely different numeric scale. Kept as its own named constant
+# specifically so the two are never silently conflated or accidentally
+# reused for each other's purpose. Chosen as a small absolute tolerance
+# to absorb floating-point noise in the VaR recomputation (both
+# portfolio_variance_value and the sqrt/z-score arithmetic feeding
+# parametric_var), not because the Mandate's loss cap itself is expected
+# to be precise to within 1e-6 of a pound.
+_LOSS_CAP_REVERIFICATION_TOLERANCE = 1e-6
+
 
 def _validate_and_build_matrices(
     expected_returns: dict[str, float],
@@ -361,7 +376,7 @@ def minimize_variance_with_loss_cap(
     # the loss-cap constraint was enforced during solving, but its
     # satisfaction is re-verified independently from the solved weights
     # rather than assumed from the solver's reported status alone.
-    if value_at_risk > max_single_period_loss + 1e-6:
+    if value_at_risk > max_single_period_loss + _LOSS_CAP_REVERIFICATION_TOLERANCE:
         raise ValueError(
             f"minimize_variance_with_loss_cap: solver reported status "
             f"{problem.status!r} but the recomputed VaR "

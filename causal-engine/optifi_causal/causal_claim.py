@@ -38,7 +38,17 @@ class CausalClaim(UAP):
 
     1. `information_class` is always ESTIMATE
        (ENGINE_PIPELINE_SPECIFICATION.md, Stage 5 — causal-engine's
-       output is never FACT or JUDGEMENT).
+       output is never FACT or JUDGEMENT). Precisely: any value
+       explicitly passed other than ESTIMATE is rejected at
+       construction. The field's own default is hardcoded to ESTIMATE,
+       so omitting it is equally safe — but be aware pydantic v2 does
+       not re-run field_validators against a field left at its default
+       value, only against explicitly-passed values. This validator has
+       therefore never actually executed for any construction in this
+       codebase to date, since every current caller relies on the
+       default rather than passing information_class= explicitly; the
+       invariant holds today because the default is correct, not
+       because this check is continuously re-verifying it.
     2. The correlation-causation guardrail
        (CAUSAL_ENGINE_SPEC.md, Section 5.2 / Section 6): at least one of
        `mechanism` or `historical_precedent` must be present. Bare
@@ -51,8 +61,10 @@ class CausalClaim(UAP):
         default=InformationClass.ESTIMATE,
         description=(
             "Fixed to ESTIMATE for every CausalClaim "
-            "(ENGINE_PIPELINE_SPECIFICATION.md, Stage 5). Any other value "
-            "is rejected at construction."
+            "(ENGINE_PIPELINE_SPECIFICATION.md, Stage 5). Any value "
+            "explicitly passed other than ESTIMATE is rejected at "
+            "construction; see the class docstring for the pydantic "
+            "defaulted-field nuance this implies."
         ),
     )
 

@@ -69,7 +69,11 @@ def _sample_covariance(x: list[float], y: list[float]) -> float:
     n = len(x)
     mean_x = _mean(x)
     mean_y = _mean(y)
-    return sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y)) / (n - 1)
+    # strict=True: x and y are always the same length via
+    # _validate_returns_by_asset's own check before this is ever called,
+    # but a silent truncation on a future mismatch would produce a
+    # quietly wrong covariance number rather than a clear error.
+    return sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y, strict=True)) / (n - 1)
 
 
 def _is_positive_semi_definite(

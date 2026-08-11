@@ -172,7 +172,12 @@ def inverse_error_weighted_ensemble(
     weights = [inverse_error / total_inverse_error for inverse_error in inverse_errors]
 
     values = [f.result for f in forecasts]
-    ensemble_result = sum(w * v for w, v in zip(weights, values))
+    # strict=True: weights and values are always the same length here —
+    # both are derived, one-to-one, from historical_errors/forecasts,
+    # whose lengths are already checked equal above — but a silent
+    # truncation on a future refactor mistake would produce a quietly
+    # wrong ensemble number rather than a clear error.
+    ensemble_result = sum(w * v for w, v in zip(weights, values, strict=True))
 
     return UAP(
         subject=subject,

@@ -7,7 +7,7 @@ import pytest
 from optifi_shared import InformationClass
 
 from optifi_quant import correlation_matrix, covariance_matrix, portfolio_variance
-from optifi_quant.covariance import _is_positive_semi_definite
+from optifi_quant.covariance import _is_positive_semi_definite, _sample_covariance
 
 
 # --- covariance_matrix ---
@@ -137,3 +137,17 @@ def test_portfolio_variance_rejects_covariance_row_asset_mismatch():
     covariance = {"A": {"A": 0.04, "B": 0.01}, "B": {"A": 0.01, "C": 0.09}}
     with pytest.raises(ValueError):
         portfolio_variance(weights, covariance)
+
+
+def test_sample_covariance_raises_clearly_on_mismatched_lengths():
+    """
+    Code Quality Verification finding #8: strict=True added to the
+    internal zip() so a length mismatch raises clearly instead of
+    silently truncating to the shorter series. Not reachable through the
+    public API (covariance_matrix/correlation_matrix already reject
+    mismatched-length series before this private helper is ever called)
+    — tested directly against the helper itself as genuine defense-in-
+    depth for exactly that reason.
+    """
+    with pytest.raises(ValueError, match="zip"):
+        _sample_covariance([1.0, 2.0, 3.0], [1.0, 2.0])

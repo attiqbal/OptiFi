@@ -5,7 +5,12 @@ Tests for verify_optimisation_candidate and verify_loss_cap_candidate
 
 from optifi_quant import parametric_var, portfolio_variance
 
-from optifi_verification import VerdictType, verify_loss_cap_candidate, verify_optimisation_candidate
+from optifi_verification import (
+    FailureCategory,
+    VerdictType,
+    verify_loss_cap_candidate,
+    verify_optimisation_candidate,
+)
 
 EXPECTED_RETURNS = {"A": 0.05, "B": 0.10}
 COVARIANCE = {
@@ -24,6 +29,10 @@ def test_valid_candidate_passes():
         weights, EXPECTED_RETURNS, target_return, min_weight=0.0, max_weight=1.0
     )
     assert verdict.verdict_type == VerdictType.PASS
+    # Content of the PASS verdict's own reasons, not just its type.
+    assert verdict.reasons == [
+        "weights sum to 1, respect bounds, and achieve target_return within tolerance"
+    ]
 
 
 def test_weight_sum_violation_rejects():
@@ -33,6 +42,7 @@ def test_weight_sum_violation_rejects():
     )
     assert verdict.verdict_type == VerdictType.REJECT
     assert any("sum to" in reason for reason in verdict.reasons)
+    assert verdict.failure_category == FailureCategory.DATA_QUALITY
 
 
 def test_bounds_violation_rejects():
@@ -43,6 +53,7 @@ def test_bounds_violation_rejects():
     )
     assert verdict.verdict_type == VerdictType.REJECT
     assert any("outside bounds" in reason for reason in verdict.reasons)
+    assert verdict.failure_category == FailureCategory.DATA_QUALITY
 
 
 def test_target_return_mismatch_rejects():
@@ -64,6 +75,37 @@ def test_multiple_simultaneous_failures_all_reported():
     assert any("sum to" in reason for reason in verdict.reasons)
     assert any("outside bounds" in reason for reason in verdict.reasons)
     assert len(verdict.reasons) >= 2
+
+
+def test_candidate_with_unrecognized_asset_is_rejected_not_silently_zeroed():
+    """
+    Code Quality Verification finding #3: a weight for an asset absent
+    from expected_returns must be flagged by name, not silently treated
+    as contributing 0.0 to achieved_return.
+    """
+    weights = {"A": 0.5, "B": 0.3, "C": 0.2}  # "C" has no entry in EXPECTED_RETURNS
+    # Chosen so that IF "C" were silently zeroed, achieved_return would
+    # still match target_return exactly — proving this candidate is
+    # rejected because of the unrecognized asset itself, not because of
+    # an incidental target_return mismatch.
+    target_return = 0.5 * 0.05 + 0.3 * 0.10
+
+    verdict = verify_optimisation_candidate(weights, EXPECTED_RETURNS, target_return, min_weight=0.0, max_weight=1.0)
+
+    assert verdict.verdict_type == VerdictType.REJECT
+    assert any("'C'" in reason and "expected_returns" in reason for reason in verdict.reasons)
+    # No misleading target_return-mismatch reason — that check is
+    # correctly skipped since achieved_return can't be meaningfully
+    # computed while an asset is unrecognized.
+    assert not any("does not match target_return" in reason for reason in verdict.reasons)
+
+
+def test_candidate_with_all_assets_recognized_is_unaffected_by_the_fix():
+    """Control case: normal candidates referencing only known assets are unaffected."""
+    weights = {"A": 0.6, "B": 0.4}
+    target_return = 0.6 * 0.05 + 0.4 * 0.10
+    verdict = verify_optimisation_candidate(weights, EXPECTED_RETURNS, target_return, min_weight=0.0, max_weight=1.0)
+    assert verdict.verdict_type == VerdictType.PASS
 
 
 # --- verify_loss_cap_candidate ---
@@ -98,6 +140,11 @@ def test_valid_candidate_within_cap_passes():
         max_weight=1.0,
     )
     assert verdict.verdict_type == VerdictType.PASS
+    # Content of the PASS verdict's own reasons, not just its type.
+    assert verdict.reasons == [
+        "weights sum to 1, respect bounds, achieve target_return, and "
+        "recomputed VaR is within max_single_period_loss"
+    ]
 
 
 def test_hand_constructed_candidate_violating_cap_is_rejected():
@@ -123,6 +170,7 @@ def test_hand_constructed_candidate_violating_cap_is_rejected():
         "recomputed parametric VaR" in reason and "exceeds max_single_period_loss" in reason
         for reason in verdict.reasons
     )
+    assert verdict.failure_category == FailureCategory.DATA_QUALITY
 
 
 def test_candidate_failing_both_cap_and_weight_sum_reports_both():

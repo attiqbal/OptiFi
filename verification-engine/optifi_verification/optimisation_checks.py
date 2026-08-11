@@ -32,9 +32,20 @@ def verify_optimisation_candidate(
     constraints an optimisation-engine candidate claims to:
     - weights sum to 1
     - every weight is within [min_weight, max_weight]
+    - every asset in `weights` has a corresponding entry in `expected_returns`
     - the weighted expected return matches target_return
 
     All violated checks are reported together, not just the first found.
+
+    Code Quality Verification finding #3: a `weights` entry for an asset
+    absent from `expected_returns` used to be silently treated as
+    contributing 0.0 to achieved_return (`expected_returns.get(asset,
+    0.0)`) — a malformed candidate referencing an unrecognized asset
+    could pass this check by coincidence rather than being caught. That
+    asset is now flagged by name as its own failure, and achieved_return
+    is not computed against a partially-defined expected_returns at all
+    (it would be meaningless), so this specific check is skipped rather
+    than reported as a possibly-misleading target_return mismatch.
     """
     reasons: list[str] = []
 
@@ -52,14 +63,21 @@ def verify_optimisation_candidate(
                 f"[{min_weight}, {max_weight}]"
             )
 
-    achieved_return = sum(
-        weight * expected_returns.get(asset, 0.0) for asset, weight in weights.items()
-    )
-    if abs(achieved_return - target_return) > tolerance:
+    unrecognized_assets = sorted(asset for asset in weights if asset not in expected_returns)
+    if unrecognized_assets:
         reasons.append(
-            f"achieved return {achieved_return!r} does not match "
-            f"target_return {target_return!r} within tolerance ({tolerance})"
+            f"weights reference asset(s) with no entry in expected_returns, "
+            f"so achieved return cannot be verified: {unrecognized_assets}"
         )
+    else:
+        achieved_return = sum(
+            weight * expected_returns[asset] for asset, weight in weights.items()
+        )
+        if abs(achieved_return - target_return) > tolerance:
+            reasons.append(
+                f"achieved return {achieved_return!r} does not match "
+                f"target_return {target_return!r} within tolerance ({tolerance})"
+            )
 
     if reasons:
         return Verdict(
