@@ -2,13 +2,16 @@
 optifi_quant — quant-engine.
 
 Implements portfolio and risk metrics from QUANT_ENGINE_SPEC.md Section 5,
-plus the Capital Efficiency Score (Section 7's six sub-scores and Section
-8's composite). This package currently implements Section 5.2's Sharpe
-ratio, Section 5.3's two Value-at-Risk methods (historical, parametric),
-Section 5.5's correlation/covariance/portfolio-variance functions, and the
-Capital Efficiency Score — every other metric in Section 5 (returns, other
-risk-adjusted ratios, exposure/concentration) remains separate,
-not-yet-implemented future work.
+the Capital Efficiency Score (Section 7's six sub-scores and Section 8's
+composite), and the minimum-variance hedge ratio (HEDGING_SPEC.md Section
+4.1). This package currently implements Section 5.2's Sharpe ratio,
+Section 5.3's two Value-at-Risk methods (historical, parametric), Section
+5.5's correlation/covariance/portfolio-variance functions, the Capital
+Efficiency Score, and the hedge ratio — every other metric in Section 5
+(returns, other risk-adjusted ratios, exposure/concentration) and every
+other piece of HEDGING_SPEC.md (basis risk disclosure, dynamic-hedging
+rebalancing, options-based structures) remain separate, not-yet-implemented
+future work.
 """
 
 from .capital_efficiency import (
@@ -21,6 +24,7 @@ from .capital_efficiency import (
     tax_efficiency,
 )
 from .covariance import correlation_matrix, covariance_matrix, portfolio_variance
+from .hedging import minimum_variance_hedge_ratio
 from .risk_metrics import historical_var, parametric_var, sharpe_ratio
 
 __all__ = [
@@ -37,4 +41,5 @@ __all__ = [
     "liquidity_efficiency",
     "investment_efficiency",
     "composite_capital_efficiency_score",
+    "minimum_variance_hedge_ratio",
 ]
