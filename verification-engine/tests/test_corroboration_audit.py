@@ -27,9 +27,39 @@ def _make_uap(
     )
 
 
-def test_genuinely_independently_corroborated_fact_passes():
+def test_independently_corroborated_but_unverified_source_produces_pass_with_caution():
+    """
+    Verdict-gap fix: the confirming source is genuinely independent (a
+    different origin, satisfying Section 4a's rule), but is itself only
+    PROVISIONAL -- VERIFICATION_FRAMEWORK.md Section 4's own literal
+    example of PASS WITH CAUTION ("a dependency was itself only
+    PROVISIONAL"). Previously this collapsed into a clean, uncaveated
+    PASS; now it must not.
+    """
     verified_fact = _make_uap(source="Outlet A")
     sources_used = [_make_uap(source="Outlet B", validation_status=ValidationStatus.PROVISIONAL)]
+
+    verdict = audit_corroboration(verified_fact, sources_used)
+
+    assert verdict.verdict_type == VerdictType.PASS_WITH_CAUTION
+    assert any("PROVISIONAL" in reason for reason in verdict.reasons)
+
+
+def test_independent_source_that_is_itself_verified_produces_clean_pass():
+    """
+    Companion/control case for the fix above: when the independent
+    source is ITSELF already VERIFIED (even without being a structured
+    FACT+VERIFIED cross-check), there is nothing unsettled to caveat --
+    a clean PASS is still correct.
+    """
+    verified_fact = _make_uap(source="Outlet A")
+    sources_used = [
+        _make_uap(
+            source="Outlet B",
+            information_class=InformationClass.ESTIMATE,  # not FACT, so not a structured cross-check
+            validation_status=ValidationStatus.VERIFIED,
+        )
+    ]
 
     verdict = audit_corroboration(verified_fact, sources_used)
 

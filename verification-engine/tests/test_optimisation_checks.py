@@ -197,7 +197,19 @@ def test_candidate_failing_both_cap_and_weight_sum_reports_both():
     assert real_var > 0  # sanity: real_var was actually computed, not skipped
 
 
-def test_boundary_case_at_cap_within_tolerance_is_not_falsely_rejected():
+def test_boundary_case_at_cap_within_tolerance_produces_pass_with_caution():
+    """
+    Verdict-gap fix: a candidate whose recomputed VaR sits EXACTLY at the
+    cap (0% margin) is not falsely REJECTed (the original point of this
+    test), but it's also not indistinguishable from a comfortable-margin
+    PASS anymore -- 0% margin is well within
+    _LOSS_CAP_PROXIMITY_THRESHOLD (2%), so this must now be PASS WITH
+    CAUTION, not a clean PASS. Contrast with
+    test_valid_candidate_within_cap_passes above, whose real_var + 1000
+    margin (~3.6% of real_var) sits safely outside the 2% band and
+    remains a clean PASS -- the two tests now produce genuinely
+    different, correct verdicts for genuinely different risk margins.
+    """
     real_var = _real_var_for(_VALID_WEIGHTS)
     verdict = verify_loss_cap_candidate(
         _VALID_WEIGHTS,
@@ -211,4 +223,5 @@ def test_boundary_case_at_cap_within_tolerance_is_not_falsely_rejected():
         max_weight=1.0,
         tolerance=1e-6,
     )
-    assert verdict.verdict_type == VerdictType.PASS
+    assert verdict.verdict_type == VerdictType.PASS_WITH_CAUTION
+    assert any("within" in reason and "2%" in reason for reason in verdict.reasons)

@@ -18,6 +18,18 @@ from optifi_quant import parametric_var, portfolio_variance
 
 from .verdict import FailureCategory, Verdict, VerdictType
 
+# DESIGNED calibration placeholder (VERIFICATION_FRAMEWORK.md Section 9,
+# item 1 explicitly defers exact PASS/PASS WITH CAUTION/FLAG thresholds
+# to later real-use calibration): a candidate whose recomputed VaR sits
+# within 2% of max_single_period_loss earns a PASS WITH CAUTION instead
+# of a clean PASS -- it genuinely respects the cap, but close enough to
+# it that a small, realistic recalculation drift (market data noise,
+# a slightly different covariance estimate) could push it over. 2% was
+# chosen narrow and conservative on purpose: tight enough that only
+# candidates genuinely hugging the cap trigger a caution, not every
+# candidate with an ordinary, reasonable safety margin.
+_LOSS_CAP_PROXIMITY_THRESHOLD = 0.02
+
 
 def verify_optimisation_candidate(
     weights: dict[str, float],
@@ -127,6 +139,7 @@ def verify_loss_cap_candidate(
         list(base_verdict.reasons) if base_verdict.verdict_type == VerdictType.REJECT else []
     )
 
+    recomputed_var: float | None = None
     try:
         pv_uap = portfolio_variance(weights, covariance)
         portfolio_std_dev = pv_uap.result**0.5
@@ -150,6 +163,28 @@ def verify_loss_cap_candidate(
             reasons=reasons,
             failure_category=FailureCategory.DATA_QUALITY,
         )
+
+    if recomputed_var is not None:
+        # VERIFICATION_FRAMEWORK.md Section 4: "output stands, but a
+        # caveat is attached" -- the candidate DOES pass (VaR is within
+        # the cap), but sitting this close to the mandate's own stated
+        # loss tolerance is meaningfully different information than a
+        # comfortable margin. Not FLAG: nothing here contradicts another
+        # output, is stale, or is missing -- this is a magnitude caveat
+        # on an already-passing check, exactly PASS WITH CAUTION's shape.
+        proximity_bound = max_single_period_loss * (1.0 - _LOSS_CAP_PROXIMITY_THRESHOLD)
+        if recomputed_var >= proximity_bound:
+            return Verdict(
+                verdict_type=VerdictType.PASS_WITH_CAUTION,
+                reasons=[
+                    f"weights sum to 1, respect bounds, achieve target_return, "
+                    f"and recomputed VaR ({recomputed_var!r}) is within "
+                    f"max_single_period_loss ({max_single_period_loss!r}), but "
+                    f"within {_LOSS_CAP_PROXIMITY_THRESHOLD:.0%} of it -- close "
+                    "enough to the mandate's loss cap to warrant a caution"
+                ],
+            )
+
     return Verdict(
         verdict_type=VerdictType.PASS,
         reasons=[

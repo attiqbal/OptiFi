@@ -14,7 +14,7 @@ Checks two things against a supplied set of known packets:
 
 from __future__ import annotations
 
-from optifi_shared import UAP
+from optifi_shared import UAP, ValidationStatus
 
 from .verdict import FailureCategory, Verdict, VerdictType
 
@@ -55,6 +55,31 @@ def check_provenance_resolvable(uap: UAP, known_packets: dict[str, UAP]) -> Verd
                 f"this packet's own id, via: {circular}"
             ],
             failure_category=FailureCategory.UNVERIFIABLE_PROVENANCE,
+        )
+
+    # Structurally the same gap as audit_corroboration's: resolvable and
+    # acyclic only confirms the chain can be TRACED, not that what it
+    # traces to is itself settled. VERIFICATION_FRAMEWORK.md Section 4's
+    # own PASS WITH CAUTION example -- "a dependency was itself only
+    # PROVISIONAL" -- applies directly to a directly-referenced upstream
+    # packet that isn't VERIFIED. Not FLAG: nothing here contradicts
+    # another output, and the chain itself is genuinely fine (resolvable,
+    # acyclic) -- it's the upstream packet's OWN status that isn't
+    # settled, exactly the PASS WITH CAUTION shape, not a newly-found
+    # inconsistency.
+    non_verified_upstream = [
+        (pid, known_packets[pid].validation_status.value)
+        for pid in uap.provenance_chain
+        if known_packets[pid].validation_status != ValidationStatus.VERIFIED
+    ]
+    if non_verified_upstream:
+        return Verdict(
+            verdict_type=VerdictType.PASS_WITH_CAUTION,
+            reasons=[
+                "provenance_chain is fully resolvable and acyclic, but "
+                "references upstream packet(s) that are not themselves "
+                f"VERIFIED: {non_verified_upstream}"
+            ],
         )
 
     return Verdict(

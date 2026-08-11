@@ -45,6 +45,8 @@ def audit_corroboration(verified_fact: UAP, sources_used: list[UAP]) -> Verdict:
             f"{verified_fact.validation_status!r}."
         )
 
+    # A structured cross-check is BY DEFINITION already FACT+VERIFIED
+    # (that's the criterion itself), so it never needs a caution.
     structured_cross_check_found = any(
         source.information_class == InformationClass.FACT
         and source.validation_status == ValidationStatus.VERIFIED
@@ -52,18 +54,46 @@ def audit_corroboration(verified_fact: UAP, sources_used: list[UAP]) -> Verdict:
     )
 
     seen_sources: set[str] = {verified_fact.source}
-    independent_source_found = False
+    independent_sources: list[UAP] = []
     for source in sources_used:
         if source.source not in seen_sources:
             seen_sources.add(source.source)
-            independent_source_found = True
+            independent_sources.append(source)
 
-    if structured_cross_check_found or independent_source_found:
+    if structured_cross_check_found or any(
+        source.validation_status == ValidationStatus.VERIFIED for source in independent_sources
+    ):
         return Verdict(
             verdict_type=VerdictType.PASS,
             reasons=[
                 "independent re-derivation confirms the claimed VERIFIED "
                 "status is justified"
+            ],
+        )
+
+    if independent_sources:
+        # VERIFICATION_FRAMEWORK.md Section 4's own literal example of
+        # PASS WITH CAUTION: "output stands, but a caveat is attached
+        # (e.g. a dependency was itself only PROVISIONAL)." The
+        # independence criterion (Section 4a, (a)) is genuinely
+        # satisfied here -- the confirming source(s) really are of a
+        # different origin -- but none of them has itself reached
+        # VERIFIED yet, so the corroboration this claim rests on is
+        # itself not fully settled. Not FLAG: nothing here contradicts
+        # another output, is stale, or is missing -- corroboration WAS
+        # found, it just isn't fully confirmed yet.
+        non_verified_statuses = sorted(
+            {source.validation_status.value for source in independent_sources}
+        )
+        return Verdict(
+            verdict_type=VerdictType.PASS_WITH_CAUTION,
+            reasons=[
+                "independent re-derivation confirms a genuinely "
+                "independent source exists, but the confirming source(s) "
+                "are not themselves VERIFIED yet (validation_status: "
+                f"{non_verified_statuses}) -- the claimed VERIFIED status "
+                "stands, but is only as settled as its own least-settled "
+                "corroborating source"
             ],
         )
 

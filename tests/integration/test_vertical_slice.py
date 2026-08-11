@@ -511,7 +511,17 @@ def test_step6_loss_cap_parameter_is_not_inert_for_this_scenarios_real_data(vert
 def test_step7_all_three_verification_checks_pass(vertical_slice):
     assert vertical_slice["opt_verdict"].verdict_type == VerdictType.PASS
     assert vertical_slice["loss_cap_verdict"].verdict_type == VerdictType.PASS
-    assert vertical_slice["provenance_verdict"].verdict_type == VerdictType.PASS
+    # PASS WITH CAUTION, not a clean PASS: the candidate's provenance_chain
+    # genuinely resolves and is acyclic, but references cov_uap
+    # (quant-engine's covariance_matrix output), which is
+    # validation_status=PROVISIONAL by design (quant-engine never marks
+    # its own output VERIFIED) — VERIFICATION_FRAMEWORK.md Section 4's own
+    # PASS WITH CAUTION example ("a dependency was itself only
+    # PROVISIONAL") applies directly here, in this real pipeline, not
+    # just in a synthetic unit-test scenario.
+    assert vertical_slice["provenance_verdict"].verdict_type == VerdictType.PASS_WITH_CAUTION
+    assert vertical_slice["cov_uap"].id in vertical_slice["provenance_verdict"].reasons[0]
+    assert "PROVISIONAL" in vertical_slice["provenance_verdict"].reasons[0]
 
 
 def test_step8_genuine_disagreement_preserved_across_all_three_forecasts(vertical_slice):
