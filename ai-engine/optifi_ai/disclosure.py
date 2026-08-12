@@ -28,6 +28,26 @@ actually checked.
 
 A UAP with no dependencies/provenance_chain at all is a true leaf — there
 is nothing to resolve, so it never generates an incompleteness note.
+
+Verification-caution surfacing (VERIFICATION_FRAMEWORK.md Section 4,
+PASS WITH CAUTION: "validation_status is unchanged, but the caution note
+must be visible downstream, including in the 'Why?' drill-down"):
+`apply_verdict` records a PASS WITH CAUTION verdict's reason(s) in the
+UAP's own `limitations`, prefixed `"verification caution: "`, precisely
+BECAUSE validation_status is deliberately left unchanged for that verdict
+type (unlike FLAG) — so the existing validation_status-driven disclosure
+above cannot be the mechanism that surfaces it; a PASS-WITH-CAUTIONed item
+can easily already be, or remain, VERIFIED-adjacent in every other
+respect. This function reads that specific, existing marker back out of
+every reachable UAP's `limitations` (not the generator, and not
+frame_candidate, which correctly leaves dependencies/limitations
+untouched already) and appends each as its own disclosure line —
+independent of that UAP's own validation_status, since a caution is
+meaningful regardless of what else is true about the item's trust level.
+This is a general mechanism, not specific to any one candidate type or
+verification check: it fires identically for a hedging structure's
+partial-coverage caution, a loss-cap-proximity caution, or any other
+PASS WITH CAUTION verdict `apply_verdict` has ever recorded.
 """
 
 from __future__ import annotations
@@ -35,6 +55,12 @@ from __future__ import annotations
 from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
 
 from .generator import ExplanationGenerator
+
+# The exact marker apply_verdict.py (verification-engine) prefixes onto a
+# PASS WITH CAUTION verdict's reason(s) when recording them into a UAP's
+# own `limitations` — read back out below, not redefined independently,
+# so the two stay coupled to the same literal string.
+_VERIFICATION_CAUTION_PREFIX = "verification caution: "
 
 
 def explain_with_disclosure(
@@ -56,6 +82,17 @@ def explain_with_disclosure(
         for u in reachable
         if u.validation_status != ValidationStatus.VERIFIED
     ]
+    # See module docstring: PASS WITH CAUTION verdicts leave
+    # validation_status unchanged by design, so the check above alone
+    # cannot surface them -- read the "verification caution: " marker
+    # apply_verdict already records in `limitations` back out here,
+    # independent of validation_status.
+    disclosures.extend(
+        f"Note: '{u.subject}' — {limitation}"
+        for u in reachable
+        for limitation in u.limitations
+        if limitation.startswith(_VERIFICATION_CAUTION_PREFIX)
+    )
     for referencer_id, missing_ids in unresolved_by_referencer.items():
         referencer = reachable_by_id[referencer_id]
         disclosures.append(
