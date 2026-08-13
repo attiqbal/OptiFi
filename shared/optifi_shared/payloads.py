@@ -170,6 +170,16 @@ class FailureResult(BaseModel):
             "OUT_OF_DISTRIBUTION",
             "MODEL_FAILURE",
             "VERIFICATION_FAILURE",
+            # Phase E2 additions — raw-data-quality categories, see
+            # failures.py's own "Phase E2 additions" section for why
+            # these are distinct from the eight analytical categories
+            # above rather than force-fit into one of them.
+            "DUPLICATE_OBSERVATION",
+            "CURRENCY_MISMATCH",
+            "DISCONTINUITY",
+            "TIMESTAMP_INCONSISTENCY",
+            "CALENDAR_MISMATCH",
+            "IMPOSSIBLE_VALUE",
         }
     )
 

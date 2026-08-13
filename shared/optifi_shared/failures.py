@@ -101,3 +101,68 @@ class VerificationFailure(AnalyticalFailure):
     produced, but that independent verification refused to certify."""
 
     category = "VERIFICATION_FAILURE"
+
+
+# --- Phase E2 additions: raw-data-quality categories ---
+#
+# The eight categories above were introduced under Phase E1 as
+# "Examples" of structured analytical failures (i.e. illustrative, not a
+# closed enumeration) — Phase E2's own Stage 2 validation work
+# (data-engine's `validation.py`) surfaces genuinely distinct failure
+# modes specific to RAW DATA QUALITY, not analytical computation, that
+# none of the eight above describe well. Adding them here, rather than
+# force-fitting a currency mismatch into e.g. OUT_OF_DISTRIBUTION, keeps
+# `category` an honest, specific signal. Purely additive: nothing about
+# the eight existing categories changes.
+
+
+class DuplicateObservationFailure(AnalyticalFailure):
+    """Two records claim to be the same observation (same identifier,
+    same observation_time) but disagree on their value — a genuine
+    conflict, not a harmless re-send of identical data (which is
+    de-duplicated silently, not raised as a failure at all)."""
+
+    category = "DUPLICATE_OBSERVATION"
+
+
+class CurrencyMismatchFailure(AnalyticalFailure):
+    """An observation's stated currency/unit does not match what the
+    caller expected — proceeding without resolving this would silently
+    mix incompatible scales."""
+
+    category = "CURRENCY_MISMATCH"
+
+
+class DiscontinuityFailure(AnalyticalFailure):
+    """An observation moved far enough from the prior observation in
+    the same series, in too short a time, to be treated as a genuine
+    data-quality concern (a fat-fingered price, a decimal-point error,
+    a bad tick) rather than accepted at face value."""
+
+    category = "DISCONTINUITY"
+
+
+class TimestampInconsistencyFailure(AnalyticalFailure):
+    """An observation's own timestamps are internally inconsistent
+    (e.g. retrieved before it was observed) — a sign the record itself,
+    or its metadata, cannot be trusted as given."""
+
+    category = "TIMESTAMP_INCONSISTENCY"
+
+
+class CalendarMismatchFailure(AnalyticalFailure):
+    """An observation's timing does not match the expected
+    exchange/release calendar (e.g. a market observation timestamped
+    for a date the relevant exchange was closed)."""
+
+    category = "CALENDAR_MISMATCH"
+
+
+class ImpossibleValueFailure(AnalyticalFailure):
+    """An observation's value is outside what is physically or
+    definitionally possible for its kind (e.g. a negative price) —
+    distinct from OutOfDistributionFailure, which describes a value
+    that is possible in principle but implausible relative to a model's
+    expected range."""
+
+    category = "IMPOSSIBLE_VALUE"

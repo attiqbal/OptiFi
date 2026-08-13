@@ -1,0 +1,26 @@
+[
+  {
+    "observation_time": "2026-07-15T09:30:00+00:00",
+    "indicator_name": "SYNTH_CPI_YOY",
+    "value": 2.9,
+    "unit": "%",
+    "vintage": "advance estimate",
+    "source_identity": {
+      "publication": "Illustrative Test Statistics Office",
+      "issuer": "Illustrative Test Statistics Office",
+      "originating_document_id": "synth-cpi-2026-06-advance"
+    }
+  },
+  {
+    "observation_time": "2026-08-10T09:30:00+00:00",
+    "indicator_name": "SYNTH_CPI_YOY",
+    "value": 3.1,
+    "unit": "%",
+    "vintage": "second estimate",
+    "source_identity": {
+      "publication": "Illustrative Test Statistics Office",
+      "issuer": "Illustrative Test Statistics Office",
+      "originating_document_id": "synth-cpi-2026-06-second"
+    }
+  }
+]

@@ -7,12 +7,18 @@ import pytest
 
 from optifi_shared import (
     AnalyticalFailure,
+    CalendarMismatchFailure,
     ConflictedInputFailure,
+    CurrencyMismatchFailure,
+    DiscontinuityFailure,
+    DuplicateObservationFailure,
+    ImpossibleValueFailure,
     InsufficientDataFailure,
     MissingInputFailure,
     ModelFailure,
     OutOfDistributionFailure,
     StaleInputFailure,
+    TimestampInconsistencyFailure,
     UnsupportedFailure,
     VerificationFailure,
 )
@@ -26,6 +32,12 @@ ALL_FAILURE_TYPES = [
     OutOfDistributionFailure,
     ModelFailure,
     VerificationFailure,
+    DuplicateObservationFailure,
+    CurrencyMismatchFailure,
+    DiscontinuityFailure,
+    TimestampInconsistencyFailure,
+    CalendarMismatchFailure,
+    ImpossibleValueFailure,
 ]
 
 
@@ -56,6 +68,12 @@ def test_each_failure_type_has_a_distinct_machine_readable_category():
         "OUT_OF_DISTRIBUTION",
         "MODEL_FAILURE",
         "VERIFICATION_FAILURE",
+        "DUPLICATE_OBSERVATION",
+        "CURRENCY_MISMATCH",
+        "DISCONTINUITY",
+        "TIMESTAMP_INCONSISTENCY",
+        "CALENDAR_MISMATCH",
+        "IMPOSSIBLE_VALUE",
     }
 
 

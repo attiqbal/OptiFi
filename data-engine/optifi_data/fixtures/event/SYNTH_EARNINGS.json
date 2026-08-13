@@ -1,0 +1,13 @@
+[
+  {
+    "observation_time": "2026-07-28T07:00:00+00:00",
+    "event_type": "earnings_release",
+    "description": "Illustrative Test Company Ltd reports H1 results (synthetic fixture data)",
+    "entity_ids": ["synth-entity-acme"],
+    "source_identity": {
+      "publication": "Illustrative Test Company Ltd",
+      "issuer": "Illustrative Test Company Ltd",
+      "originating_document_id": "synth-earnings-2026-h1"
+    }
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "observation_time": "2026-08-01T16:30:00+00:00",
+    "instrument_id": "SYNTH_ACME",
+    "exchange": "SYNTH_EXCHANGE",
+    "price": 101.23,
+    "currency": "GBP",
+    "source_identity": {
+      "publication": "Illustrative Test Market Data Vendor",
+      "issuer": null,
+      "originating_document_id": "synth-acme-2026-08-01"
+    }
+  },
+  {
+    "observation_time": "2026-08-02T16:30:00+00:00",
+    "instrument_id": "SYNTH_ACME",
+    "exchange": "SYNTH_EXCHANGE",
+    "price": 102.05,
+    "currency": "GBP",
+    "source_identity": {
+      "publication": "Illustrative Test Market Data Vendor",
+      "issuer": null,
+      "originating_document_id": "synth-acme-2026-08-02"
+    }
+  },
+  {
+    "observation_time": "2026-08-03T16:30:00+00:00",
+    "instrument_id": "SYNTH_ACME",
+    "exchange": "SYNTH_EXCHANGE",
+    "price": 100.87,
+    "currency": "GBP",
+    "source_identity": {
+      "publication": "Illustrative Test Market Data Vendor",
+      "issuer": null,
+      "originating_document_id": "synth-acme-2026-08-03"
+    }
+  }
+]
