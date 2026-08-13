@@ -4,7 +4,7 @@ Tests for quant-engine's Sharpe ratio and VaR functions
 """
 
 import pytest
-from optifi_shared import InformationClass
+from optifi_shared import InformationClass, MissingInputFailure
 
 from optifi_quant import historical_var, parametric_var, sharpe_ratio
 
@@ -59,7 +59,10 @@ def test_historical_var_is_non_negative_even_when_tail_return_is_a_gain():
 
 
 def test_historical_var_rejects_empty_returns():
-    with pytest.raises(ValueError):
+    # Phase E1 hardening: the specific, machine-readable category is now
+    # asserted, not just "some ValueError" — MissingInputFailure IS a
+    # ValueError, so this remains a strengthening, not a behaviour change.
+    with pytest.raises(MissingInputFailure):
         historical_var(returns=[], confidence_level=0.95)
 
 

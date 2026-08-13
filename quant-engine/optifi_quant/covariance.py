@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
+from optifi_shared import ConfidenceLevel, InformationClass, InsufficientDataFailure, UAP, ValidationStatus
 
 # QUANT_ENGINE_SPEC.md Section 9: covariance matrices must be positive
 # semi-definite. Eigenvalues are allowed to dip as low as -_PSD_TOLERANCE
@@ -36,7 +36,11 @@ def _validate_returns_by_asset(
     returns_by_asset: dict[str, list[float]], fn_name: str
 ) -> tuple[list[str], int]:
     if len(returns_by_asset) < 2:
-        raise ValueError(
+        # Phase E1 hardening: InsufficientDataFailure IS a ValueError,
+        # so every pre-existing `pytest.raises(ValueError)` still
+        # matches — this also lets a caller branch on the specific,
+        # machine-readable category.
+        raise InsufficientDataFailure(
             f"{fn_name}: at least 2 assets are required, got "
             f"{len(returns_by_asset)}."
         )
@@ -52,7 +56,7 @@ def _validate_returns_by_asset(
 
     n = unique_lengths.pop()
     if n < 2:
-        raise ValueError(
+        raise InsufficientDataFailure(
             f"{fn_name}: each return series must have at least 2 "
             f"observations to compute a sample statistic, got {n}."
         )

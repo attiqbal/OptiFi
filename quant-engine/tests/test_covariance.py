@@ -4,7 +4,7 @@ Tests for covariance_matrix, correlation_matrix, portfolio_variance
 """
 
 import pytest
-from optifi_shared import InformationClass
+from optifi_shared import InformationClass, InsufficientDataFailure
 
 from optifi_quant import correlation_matrix, covariance_matrix, portfolio_variance
 from optifi_quant.covariance import _is_positive_semi_definite, _sample_covariance
@@ -34,8 +34,16 @@ def test_covariance_matrix_correct_result_for_known_example():
 
 
 def test_covariance_matrix_rejects_fewer_than_two_assets():
-    with pytest.raises(ValueError):
+    # Phase E1 hardening: the specific, machine-readable category is now
+    # asserted, not just "some ValueError" — InsufficientDataFailure IS
+    # a ValueError, so this remains a strengthening, not a behaviour change.
+    with pytest.raises(InsufficientDataFailure):
         covariance_matrix({"A": [1.0, 2.0, 3.0]})
+
+
+def test_covariance_matrix_rejects_fewer_than_two_observations():
+    with pytest.raises(InsufficientDataFailure):
+        covariance_matrix({"A": [1.0], "B": [2.0]})
 
 
 def test_covariance_matrix_rejects_mismatched_series_lengths():
@@ -80,7 +88,7 @@ def test_correlation_matrix_correct_off_diagonal_for_known_example():
 
 
 def test_correlation_matrix_rejects_fewer_than_two_assets():
-    with pytest.raises(ValueError):
+    with pytest.raises(InsufficientDataFailure):
         correlation_matrix({"A": [1.0, 2.0, 3.0]})
 
 

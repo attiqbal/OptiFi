@@ -42,6 +42,22 @@ _WEIGHTS_SUM_TOLERANCE = 1e-6
 # to be precise to within 1e-6 of a pound.
 _LOSS_CAP_REVERIFICATION_TOLERANCE = 1e-6
 
+# Phase E1 hardening: `covariance` is accepted here as a raw dict with no
+# structural guarantee it actually came from quant-engine's
+# `covariance_matrix` (which independently guarantees PSD-ness,
+# QUANT_ENGINE_SPEC.md Section 9) — a hand-constructed or otherwise
+# unverified matrix carries no such guarantee, and cvxpy's
+# `assume_PSD=True` (used throughout this module) TRUSTS the caller
+# rather than checking. `_validate_and_build_matrices` below now
+# independently re-verifies both symmetry and PSD-ness before any solver
+# ever sees `sigma`, rather than assuming another engine "normally"
+# provides a valid matrix. Same tolerance values as quant-engine's own
+# `_is_positive_semi_definite` (covariance.py) for consistency, though
+# this is a genuinely independent recomputation, not a shared import of
+# that private, package-internal helper.
+_SYMMETRY_TOLERANCE = 1e-8
+_PSD_TOLERANCE = 1e-8
+
 
 def _validate_and_build_matrices(
     expected_returns: dict[str, float],
@@ -77,6 +93,50 @@ def _validate_and_build_matrices(
     n = len(asset_order)
     mu = np.array([expected_returns[a] for a in asset_order])
     sigma = np.array([[covariance[a][b] for b in asset_order] for a in asset_order])
+
+    # Phase E1 hardening — independent boundary validation, not an
+    # assumption that whoever supplied `covariance` did so correctly.
+    # Symmetry first: np.linalg.eigvalsh (used below) only reads one
+    # triangle of its input and treats the matrix AS IF symmetric
+    # regardless of what the other triangle actually contains — it
+    # cannot, by itself, detect an asymmetric input. A covariance matrix
+    # is symmetric by definition (Cov(a,b) == Cov(b,a)), so this is
+    # checked explicitly, not left to the eigenvalue check to (fail to)
+    # catch.
+    asymmetries = [
+        (a, b, sigma[i, j], sigma[j, i])
+        for i, a in enumerate(asset_order)
+        for j, b in enumerate(asset_order)
+        if i < j and abs(sigma[i, j] - sigma[j, i]) > _SYMMETRY_TOLERANCE
+    ]
+    if asymmetries:
+        a, b, cov_ab, cov_ba = asymmetries[0]
+        raise ValueError(
+            f"{fn_name}: covariance matrix is not symmetric — "
+            f"covariance['{a}']['{b}'] ({cov_ab!r}) does not match "
+            f"covariance['{b}']['{a}'] ({cov_ba!r}). A covariance matrix "
+            "must be symmetric by definition (Cov(a,b) == Cov(b,a)); "
+            "this is verified independently here rather than assumed, "
+            "since `covariance` is accepted as a raw dict with no "
+            "guarantee it came from a trusted upstream source."
+        )
+
+    eigenvalues = np.linalg.eigvalsh(sigma)
+    if np.any(eigenvalues < -_PSD_TOLERANCE):
+        raise ValueError(
+            f"{fn_name}: covariance matrix is not positive "
+            f"semi-definite (smallest eigenvalue: {float(eigenvalues.min())!r}, "
+            f"tolerance: {_PSD_TOLERANCE}) — portfolio variance "
+            "calculations built on it would be meaningless, and the "
+            "convexity `assume_PSD=True` relies on elsewhere in this "
+            "module would not actually hold. Independently validated "
+            "here rather than assumed merely because another engine "
+            "normally provides a valid matrix — use quant-engine's "
+            "`covariance_matrix`, which already guarantees this property "
+            "(QUANT_ENGINE_SPEC.md Section 9), rather than a hand-"
+            "constructed or otherwise unverified covariance matrix."
+        )
+
     return asset_order, n, mu, sigma
 
 

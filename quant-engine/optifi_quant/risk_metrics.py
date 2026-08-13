@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from scipy.stats import norm
 
-from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
+from optifi_shared import ConfidenceLevel, InformationClass, MissingInputFailure, UAP, ValidationStatus
 
 # QUANT_ENGINE_SPEC.md Section 9: "Any ratio with a volatility denominator
 # ... must guard against a zero or near-zero denominator." Chosen as a
@@ -115,7 +115,11 @@ def historical_var(returns: list[float], confidence_level: float) -> UAP:
     floored at 0.0, not reflected via absolute value, in either case.
     """
     if not returns:
-        raise ValueError("historical_var: `returns` must be a non-empty list.")
+        # Phase E1 hardening — MissingInputFailure IS a ValueError, so
+        # every pre-existing `pytest.raises(ValueError)` still matches;
+        # this just also lets a caller branch on the specific,
+        # machine-readable category rather than parsing the message.
+        raise MissingInputFailure("historical_var: `returns` must be a non-empty list.")
     if not (0 < confidence_level < 1):
         raise ValueError(
             f"historical_var: confidence_level must be strictly between 0 "

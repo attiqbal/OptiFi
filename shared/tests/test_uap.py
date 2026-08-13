@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from optifi_shared import ConfidenceLevel, InformationClass, UAP, ValidationStatus
+from optifi_shared import ConfidenceLevel, InformationClass, supersede, UAP, ValidationStatus
 
 
 def _full_uap_kwargs() -> dict:
@@ -198,3 +198,110 @@ def test_provenance_chain_and_dependencies_default_to_empty_list():
     assert uap.supersedes == []
     assert uap.disagreement_set_ref is None
     assert uap.evidence_as_of is None
+    # Phase E1 time-semantics fields: all optional, all default to None —
+    # confirms every pre-existing construction call across the codebase
+    # (none of which pass these new fields) remains valid unchanged.
+    assert uap.observation_time is None
+    assert uap.observation_period_end is None
+    assert uap.publication_time is None
+    assert uap.retrieval_time is None
+    assert uap.as_of is None
+    assert uap.vintage is None
+
+
+# --- Phase E1: time-semantics fields ---
+
+
+def test_time_semantics_fields_construct_and_are_independently_settable():
+    uap = UAP(
+        subject="Q3 GDP, UK",
+        information_class=InformationClass.FACT,
+        validation_status=ValidationStatus.PROVISIONAL,
+        result=0.4,
+        source="ONS",
+        producer="data-engine (test)",
+        confidence=ConfidenceLevel.MODERATE,
+        observation_time=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        observation_period_end=datetime(2026, 9, 30, tzinfo=timezone.utc),
+        publication_time=datetime(2026, 10, 15, tzinfo=timezone.utc),
+        retrieval_time=datetime(2026, 10, 15, 9, 0, tzinfo=timezone.utc),
+        as_of=datetime(2026, 10, 15, 9, 0, tzinfo=timezone.utc),
+        vintage="advance estimate",
+    )
+    assert uap.observation_time == datetime(2026, 7, 1, tzinfo=timezone.utc)
+    assert uap.observation_period_end == datetime(2026, 9, 30, tzinfo=timezone.utc)
+    assert uap.publication_time == datetime(2026, 10, 15, tzinfo=timezone.utc)
+    assert uap.retrieval_time == datetime(2026, 10, 15, 9, 0, tzinfo=timezone.utc)
+    assert uap.as_of == datetime(2026, 10, 15, 9, 0, tzinfo=timezone.utc)
+    assert uap.vintage == "advance estimate"
+
+
+# --- Phase E1: supersede() ---
+
+
+def _make_gdp_uap(vintage: str, result: float, **overrides) -> UAP:
+    defaults = dict(
+        subject="Q3 GDP, UK",
+        information_class=InformationClass.FACT,
+        validation_status=ValidationStatus.VERIFIED,
+        result=result,
+        source="ONS",
+        producer="data-engine (test)",
+        confidence=ConfidenceLevel.MODERATE,
+        vintage=vintage,
+    )
+    defaults.update(overrides)
+    return UAP(**defaults)
+
+
+def test_supersede_marks_old_as_superseded_without_mutating_it():
+    old = _make_gdp_uap("advance estimate", 0.4)
+    new = _make_gdp_uap("second estimate", 0.5)
+
+    new_linked, old_superseded = supersede(old, new)
+
+    # Original `old` object is untouched — historical information is
+    # never overwritten in place.
+    assert old.validation_status == ValidationStatus.VERIFIED
+    assert old_superseded.validation_status == ValidationStatus.SUPERSEDED
+    assert old_superseded is not old
+    assert old_superseded.result == 0.4  # the original value is preserved, not lost
+
+
+def test_supersede_links_new_packet_to_old_via_supersedes():
+    old = _make_gdp_uap("advance estimate", 0.4)
+    new = _make_gdp_uap("second estimate", 0.5)
+
+    new_linked, _ = supersede(old, new)
+
+    assert old.id in new_linked.supersedes
+    # No forward-pointing field on the old packet itself (per spec).
+    old_dict = old.model_dump()
+    assert "supersedes_by" not in old_dict
+
+
+def test_supersede_is_idempotent_if_new_already_references_old():
+    old = _make_gdp_uap("advance estimate", 0.4)
+    new = _make_gdp_uap("second estimate", 0.5, supersedes=[old.id])
+
+    new_linked, _ = supersede(old, new)
+
+    assert new_linked.supersedes.count(old.id) == 1
+
+
+def test_supersede_rejects_mismatched_subject():
+    old = _make_gdp_uap("advance estimate", 0.4)
+    different_subject = _make_gdp_uap("second estimate", 0.5, subject="Q3 CPI, UK")
+
+    with pytest.raises(ValueError, match="subject"):
+        supersede(old, different_subject)
+
+
+def test_supersede_rejects_double_supersession():
+    old = _make_gdp_uap("advance estimate", 0.4)
+    second = _make_gdp_uap("second estimate", 0.5)
+    _, old_superseded = supersede(old, second)
+
+    third = _make_gdp_uap("final", 0.55)
+    with pytest.raises(ValueError, match="already SUPERSEDED"):
+        supersede(old_superseded, third)

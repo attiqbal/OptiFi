@@ -145,6 +145,93 @@ class UAP(BaseModel):
         ),
     )
 
+    # --- Time semantics (Phase E1 hardening) ---
+    #
+    # `evidence_as_of`/`generated_at` above are the two time concepts
+    # Section 5 already names. Phase E1 distinguishes several more that
+    # were previously conflated or absent — all optional and defaulted to
+    # None, so every existing UAP construction call across the codebase
+    # (hundreds of them) remains valid unchanged. "Revision state" is
+    # deliberately NOT a new field here: it is already fully represented
+    # by the existing `validation_status=SUPERSEDED` + `supersedes`
+    # mechanism (Section 5), which this phase reuses rather than
+    # duplicating — see `supersede()` in this module.
+
+    observation_time: datetime | None = Field(
+        default=None,
+        description=(
+            "When the underlying real-world fact/event actually occurred "
+            "or became true — distinct from when it was reported "
+            "(publication_time) or when this packet was produced "
+            "(generated_at). For a point-in-time fact (a trade execution, "
+            "a price quote), this is that instant. For a period-based "
+            "fact (e.g. 'Q3 GDP'), this is the period's start; see "
+            "`observation_period_end` for the period's end."
+        ),
+    )
+    observation_period_end: datetime | None = Field(
+        default=None,
+        description=(
+            "The end of the observed/effective period, for period-based "
+            "data (e.g. a quarter, a month) where `observation_time` "
+            "alone would understate what the value actually covers. "
+            "Left None for point-in-time observations, where there is no "
+            "period to end."
+        ),
+    )
+    publication_time: datetime | None = Field(
+        default=None,
+        description=(
+            "When the external source formally released/published this "
+            "information — distinct from `observation_time` (a company's "
+            "results cover a quarter that ended before the results were "
+            "released) and from `retrieval_time` (OptiFi may ingest a "
+            "publication well after its release)."
+        ),
+    )
+    retrieval_time: datetime | None = Field(
+        default=None,
+        description=(
+            "When OptiFi's own data-engine actually fetched/ingested this "
+            "information. An upstream record is not genuinely available "
+            "to a downstream packet before this time, even if "
+            "`publication_time` is earlier — see the look-ahead check in "
+            "verification-engine, which uses whichever of "
+            "`publication_time`/`retrieval_time` is later as the "
+            "'genuinely available' time when both are present."
+        ),
+    )
+    as_of: datetime | None = Field(
+        default=None,
+        description=(
+            "The explicit cutoff this packet's own conclusions assume no "
+            "information exists beyond — the field the look-ahead-"
+            "contamination check validates: a packet must never legally "
+            "depend (via `dependencies`/`provenance_chain`) on an "
+            "upstream record whose `publication_time`/`retrieval_time` is "
+            "after this packet's own `as_of`. Distinct from "
+            "`evidence_as_of` (what the evidence itself refers to) and "
+            "`generated_at` (when this packet was actually produced, "
+            "which may be well after its own `as_of` cutoff for a "
+            "backtested or replayed analysis)."
+        ),
+    )
+    vintage: str | None = Field(
+        default=None,
+        description=(
+            "Free-text revision/vintage descriptor for data that is "
+            "issued in successive releases of increasing completeness "
+            "(e.g. 'advance estimate', 'second estimate', 'final') — "
+            "distinguishes which release this packet represents. Not a "
+            "controlled taxonomy: which vintage labels are valid for "
+            "which data categories is an open question (see this "
+            "package's own Known Gaps notes), deliberately not resolved "
+            "here. An earlier vintage of the same fact is superseded via "
+            "`supersedes`/`SUPERSEDED`, not overwritten — see "
+            "`supersede()`."
+        ),
+    )
+
     # --- Uncertainty & reasoning ---
 
     confidence: ConfidenceLevel = Field(
@@ -233,3 +320,53 @@ class UAP(BaseModel):
                 "to MODERATE or LOW, or resolve validation_status first."
             )
         return self
+
+
+def supersede(old: UAP, new: UAP) -> tuple[UAP, UAP]:
+    """
+    Phase E1 hardening — formalises ANALYTICAL_CONTRACT_SPEC.md Section
+    5's supersession rule: `new` officially replaces `old`, an earlier
+    packet sharing the same `subject` (e.g. a GDP advance estimate
+    superseded by the second estimate).
+
+    Historical information is never overwritten: neither input is
+    mutated, both returned UAPs are new objects, and callers are
+    expected to retain BOTH in whatever store they use -- the old
+    packet is not discarded or replaced in place, just marked. Returns
+    `(new_with_supersedes_linked, old_marked_superseded)`:
+
+    - `new_with_supersedes_linked`: `new`, with `old.id` added to its
+      own `supersedes` list (idempotent -- not duplicated if already
+      present).
+    - `old_marked_superseded`: a copy of `old` with `validation_status`
+      set to `SUPERSEDED` -- per Section 5: "the referenced packet's
+      validation_status is updated to SUPERSEDED... there is no
+      corresponding forward-pointing field on the superseded packet,"
+      i.e. this is the ONLY place that link becomes visible; `old`
+      itself carries no marker pointing forward to `new`.
+
+    Raises ValueError if `new.subject != old.subject` (supersession
+    replaces an earlier release of the SAME underlying fact, not a
+    different one), or if `old` is already SUPERSEDED (a packet cannot
+    be superseded twice — supersede whatever superseded it, or the
+    current latest vintage, instead, to avoid an ambiguous chain).
+    """
+    if new.subject != old.subject:
+        raise ValueError(
+            f"supersede: new.subject ({new.subject!r}) must match "
+            f"old.subject ({old.subject!r}) — ANALYTICAL_CONTRACT_SPEC.md "
+            "Section 5: supersession replaces an earlier release of the "
+            "same underlying fact, not a different one."
+        )
+    if old.validation_status == ValidationStatus.SUPERSEDED:
+        raise ValueError(
+            f"supersede: old (id={old.id!r}) is already SUPERSEDED — a "
+            "packet cannot be superseded twice. Supersede whatever "
+            "already superseded it, or the current latest vintage, "
+            "instead, to avoid an ambiguous supersession chain."
+        )
+
+    updated_supersedes = new.supersedes if old.id in new.supersedes else [*new.supersedes, old.id]
+    new_with_link = new.model_copy(deep=True, update={"supersedes": updated_supersedes})
+    old_superseded = old.model_copy(deep=True, update={"validation_status": ValidationStatus.SUPERSEDED})
+    return new_with_link, old_superseded

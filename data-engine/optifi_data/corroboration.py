@@ -21,28 +21,27 @@ Broadcasting Corporation" vs "BBC") — that would require real entity
 resolution, which is out of scope here. See
 tests/adversarial/test_attack2_corroboration_string_matching.py for the
 specific pairs this catches and the specific pair it still doesn't.
+
+Phase E1 hardening: the normalize/same-origin logic itself now lives in
+`optifi_shared.source_identity` (shared infrastructure, since
+`SourceIdentity` comparison composes with the same heuristic) —
+`_normalize_source`/`_same_origin` below are re-exports of that shared
+implementation under their original, already-tested names. Nothing about
+this module's own behaviour changed; this is a relocation, not a
+rewrite. For structured, non-string-based same-origin determination
+(distinguishing a publication from its originator/issuer, or matching on
+a shared originating_document_id), see `optifi_shared.SourceIdentity`
+and `same_source_identity` directly — this module's own corroboration
+logic still operates on the flat `source: str` field only, unchanged.
 """
 
 from __future__ import annotations
 
 from optifi_shared import InformationClass, UAP, ValidationStatus
+from optifi_shared import normalize_source as _normalize_source
+from optifi_shared import same_origin as _same_origin
 
-
-def _normalize_source(source: str) -> str:
-    return " ".join(source.strip().lower().split())
-
-
-def _same_origin(source_a: str, source_b: str) -> bool:
-    """
-    Bounded same-origin heuristic — see module docstring. Normalizes
-    case/whitespace, then treats an exact match or a substring match in
-    either direction as the same origin.
-    """
-    normalized_a = _normalize_source(source_a)
-    normalized_b = _normalize_source(source_b)
-    if not normalized_a or not normalized_b:
-        return normalized_a == normalized_b
-    return normalized_a == normalized_b or normalized_a in normalized_b or normalized_b in normalized_a
+__all__ = ["corroborate_fact", "_normalize_source", "_same_origin"]
 
 
 def corroborate_fact(provisional_fact: UAP, candidate_sources: list[UAP]) -> UAP:
