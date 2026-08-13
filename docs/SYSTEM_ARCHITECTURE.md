@@ -1,6 +1,6 @@
 # SYSTEM_ARCHITECTURE
 
-**Status:** DRAFT (v1 — Phase 14)
+**Status:** DRAFT (v1.1 — Phase E3, patch: Section 3/4/8 updated for evaluation-engine)
 
 ## 1. Purpose & Scope
 
@@ -21,10 +21,17 @@ described here.
 
 Matching the repository structure already created in Phase 0:
 
-- **The eight engines** (`data-engine`, `causal-engine`, `quant-engine`,
-  `forecast-engine`, `simulation-engine`, `optimisation-engine`,
-  `ai-engine`, `verification-engine`) — each a distinct service boundary,
-  each fully specified in its own document.
+- **The nine engines** (`data-engine`, `causal-engine`, `quant-engine`,
+  `forecast-engine`, `evaluation-engine`, `simulation-engine`,
+  `optimisation-engine`, `ai-engine`, `verification-engine`) — each a
+  distinct service boundary, each fully specified in its own document.
+  `verification-engine` (Stage 11) and `evaluation-engine` (Stage 14)
+  are both independent-checking boundaries but at different times:
+  `verification-engine` checks a candidate or claim's internal
+  soundness *at decision time*, before it reaches the user;
+  `evaluation-engine` tracks a forecast's or recommendation's realised
+  outcome *after the fact, over time*, and feeds that track record back
+  into model confidence. Neither substitutes for the other.
 - **`backend`** — owns technical orchestration (Section 5).
 - **`frontend`** — consumes `backend`'s finalised output and renders
   `APP_UX_BLUEPRINT.md`'s screens; contains no analytical logic of its own.
@@ -38,7 +45,7 @@ Matching the repository structure already created in Phase 0:
 Every service boundary in Section 3 communicates using the Universal
 Analytical Packet (`ANALYTICAL_CONTRACT_SPEC.md`, Section 5) — engines do
 not need bespoke point-to-point protocols between each pair; they all speak
-one common contract. This is what makes the eight-engine architecture
+one common contract. This is what makes the nine-engine architecture
 tractable as a system, not just as a diagram.
 
 ## 5. Backend's Technical Orchestration Responsibilities
@@ -79,10 +86,10 @@ this document.
 
 1. Communication technology between service boundaries (Section 3) is not
    chosen — implementation decision for later.
-2. Whether the eight engines are deployed as separate services or as
+2. Whether the nine engines are deployed as separate services or as
    modules within a single deployable unit for MVP is not decided — a
    simpler monolithic MVP deployment may be reasonable even though the
-   logical architecture treats them as eight distinct boundaries.
+   logical architecture treats them as nine distinct boundaries.
 3. The exact mechanism `backend` uses to track "complete" disagreement sets
    before Stage 12 can proceed (Section 5) needs real design — not
    specified here beyond the requirement that it exists.
