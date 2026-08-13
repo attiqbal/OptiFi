@@ -1,6 +1,6 @@
 # FORECAST_ENGINE_SPEC
 
-**Status:** DRAFT (v1.1 — Phase 12, patch: Section 9 item 3 follow-up closed + Section 2 citation corrected)
+**Status:** DRAFT (v1.2 — Phase E3, patch: Section 9 item 4 resolved)
 
 ## 1. Purpose & Scope
 
@@ -95,11 +95,18 @@ Every forecast is eventually checked against realised outcomes:
   one.
 
 This evaluation methodology is a natural candidate input to **Stage 14
-(Outcome Tracking & Model Evaluation)**, whose engine ownership has been
+(Outcome Tracking & Model Evaluation)**, whose engine ownership was
 unresolved since Phase 1A (`ENGINE_PIPELINE_SPECIFICATION.md` Section 12).
-This document does not resolve that ownership question — it only notes that
-`forecast-engine`'s own evaluation practice is directly relevant to
-whoever eventually owns it.
+**RESOLVED in Phase E3:** a new `evaluation-engine` package now owns Stage
+14 — see that document's Section 12 item 1 for the alternatives considered
+(extending `verification-engine`; extending `forecast-engine` itself;
+treating it as an `infrastructure` concern) and why each was rejected.
+`evaluation-engine` implements this section's point/probabilistic
+evaluation methodology directly, using `forecast-engine`'s own forecast
+UAPs (point forecast, uncertainty bounds, model identity) as its input —
+`forecast-engine` produces forecasts and remains the source of the model
+identity/version Stage 14 scores; it does not itself compute or store
+evaluation results.
 
 ## 8. Uncertainty Is Mandatory
 
@@ -121,5 +128,6 @@ single predicted value).
    doesn't need raw per-user Twin access...~~ **RESOLVED:** that patch
    was completed — `SECURITY.md` Section 11, item 2 now cites this
    document's Section 3 as part of its full confirmation.
-4. Stage 14's ownership remains unresolved; this document only notes the
-   connection (Section 7), it does not decide it.
+4. ~~Stage 14's ownership remains unresolved...~~ **RESOLVED (Phase E3):**
+   see Section 7 above and `ENGINE_PIPELINE_SPECIFICATION.md` Section 12
+   item 1 — `evaluation-engine` now owns Stage 14.

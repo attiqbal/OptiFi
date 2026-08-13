@@ -5,11 +5,16 @@ description = "forecast-engine: forecasting and ensemble/aggregation mechanism, 
 requires-python = ">=3.10"
 dependencies = [
     "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+    "optifi-evaluation @ file:///Users/eapple/OptiFi/evaluation-engine",
+    "numpy>=1.24",
+    "scipy>=1.10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "optifi-data @ file:///Users/eapple/OptiFi/data-engine",
+    "optifi-verification @ file:///Users/eapple/OptiFi/verification-engine",
 ]
 
 [build-system]

@@ -1,0 +1,21 @@
+[project]
+name = "optifi-evaluation"
+version = "0.1.0"
+description = "evaluation-engine: Stage 14 (Outcome Tracking & Model Evaluation), per ENGINE_PIPELINE_SPECIFICATION.md Section 12 item 1 and FORECAST_ENGINE_SPEC.md Section 7."
+requires-python = ">=3.10"
+dependencies = [
+    "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "optifi-forecast @ file:///Users/eapple/OptiFi/forecast-engine",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["optifi_evaluation*"]

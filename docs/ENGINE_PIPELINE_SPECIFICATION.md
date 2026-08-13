@@ -1,6 +1,6 @@
 # ENGINE_PIPELINE_SPECIFICATION
 
-**Status:** DRAFT (v2.6 — Phase 1A, patch: Section 12 item 5 resolved)
+**Status:** DRAFT (v2.7 — Phase E3, patch: Section 12 item 1 resolved)
 
 ## 1. Revision Notes (v1 → v2)
 
@@ -284,10 +284,12 @@ preserving `information_class` and `validation_status` distinctions — never
 flattened into undifferentiated prose. A non-`VERIFIED` item reaching the
 user must say so.
 
-**Stage 14 — Outcome Tracking & Model Evaluation** (owner unresolved)
+**Stage 14 — Outcome Tracking & Model Evaluation** (`evaluation-engine`)
 Purpose: track realised outcomes against forecasts/recommendations over time
-and feed evaluation results back into model confidence calibration. No Phase
-0 engine folder currently owns this stage — see Section 12.
+and feed evaluation results back into model confidence calibration.
+**RESOLVED in Phase E3** — see Section 12, item 1, and
+`FORECAST_ENGINE_SPEC.md` Section 7 for the forecast-evaluation methodology
+this stage implements first.
 
 ## 10. Engine Ownership Summary
 
@@ -301,7 +303,7 @@ and feed evaluation results back into model confidence calibration. No Phase
 | `optimisation-engine` | 9a, 9b | 11 |
 | `ai-engine` | 3 (unstructured support), 10, 12, 13 | 12, 14 |
 | `verification-engine` | 11 | 13 |
-| *unresolved* | 14 | — |
+| `evaluation-engine` | 14 | — |
 
 ## 11. Analytical vs. Technical Orchestration
 
@@ -316,10 +318,43 @@ must not be conflated:
 
 ## 12. Known Gaps / Open Questions Carried to Phase 1B
 
-1. Which engine owns **Stage 14 (Outcome Tracking & Model Evaluation)** —
-   an extension of `verification-engine`, a new engine folder (e.g.
-   `evaluation-engine`), or an `infrastructure`/observability concern? Not
-   resolved here.
+1. ~~Which engine owns **Stage 14 (Outcome Tracking & Model Evaluation)**...~~
+   **RESOLVED (Phase E3):** a new top-level engine folder, `evaluation-engine`,
+   was created — the smallest coherent change consistent with this
+   document's own "one engine folder per stage (or documented joint
+   ownership)" convention (Section 10). Two alternatives were considered
+   and rejected, documented here rather than decided silently:
+   - **Extending `verification-engine`** — rejected. Stage 11
+     (`verification-engine`) independently checks candidates and their
+     supporting facts/estimates/judgements *at decision time*
+     (consistency, contradiction, staleness, plausibility); Stage 14
+     tracks realised outcomes *after the fact*, over time, against
+     forecasts specifically. Conflating "is this candidate internally
+     sound right now" with "did this forecast turn out to be right" would
+     blur two genuinely different concerns this document has otherwise
+     kept cleanly separated stage by stage.
+   - **Extending `forecast-engine` itself** — rejected.
+     `FORECAST_ENGINE_SPEC.md` Section 7 already anticipated this and
+     deliberately framed evaluation as belonging to "whoever eventually
+     owns" Stage 14, distinct from Stage 6's forecast-*production*
+     concern. Folding evaluation into `forecast-engine` would also wrongly
+     scope Stage 14 to forecasts only — Stage 14's own purpose (tracking
+     realised outcomes against forecasts *and recommendations*) already
+     names a second consumer (Stage 9a/10 candidates) that has nothing to
+     do with `forecast-engine`.
+   - **An `infrastructure`/observability concern** — rejected. Stage 14's
+     work (target-appropriate metrics, calibration, model scorecards,
+     ensemble-weighting inputs) is analytical logic requiring UAP-level
+     domain knowledge (`information_class`, `validation_status`,
+     `disagreement_set_ref`, `supersede()`), not a generic
+     logging/metrics-pipeline concern `infrastructure` otherwise owns.
+
+   This is an architectural decision, not a product/regulatory one — made
+   here because `FORECAST_ENGINE_SPEC.md` Section 7 and this document's own
+   Part E-equivalent brief explicitly delegated "inspect the architecture
+   and propose the smallest coherent change" to whoever implemented Stage
+   6's evaluation counterpart. See `evaluation-engine/README.md` for the
+   package itself.
 2. ~~Does Stage 9b belong inside `optimisation-engine`...~~ **RESOLVED:**
    `OPTIMISATION_ENGINE_SPEC.md` Section 4 formally confirms
    `optimisation-engine` owns both Stage 9a and Stage 9b.
