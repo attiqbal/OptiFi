@@ -98,6 +98,7 @@ Implemented and tested
 * A forecasting and evaluation layer (`forecast-engine` + `evaluation-engine`): several baselines (naive, historical mean, rolling mean, AR(1)) and two competing model families (a statistical and a lightweight ML model) per forecasting target, evaluated with strict walk-forward validation that never trains on future data. Forecasts are frozen once made, scored with target-appropriate metrics, and rolled up into auditable per-model scorecards that can retire an underperforming model automatically.
 * Independent verification and disagreement-preserving synthesis logic that keeps model estimates and AI interpretations visibly distinct from verified facts, end to end.
 * A CIO/Manager orchestration layer (`ai-engine`, Phase E6): dynamic routing that decides which specialist engines a query actually needs rather than running all of them, roadblock detection (missing dependencies, data staleness against present time), a verification-gate mapping onto `verification-engine`'s tested verdict taxonomy that the CIO can never override on REJECT, a "Why?" evidence trace back to underlying analytical packets, and sophistication-tiered (beginner/informed/professional) explanation that never changes the underlying facts, only how much of them is spelled out. Two worked, fully-real routing examples (a single-engine lookup and a six-engine causal-to-verification decision chain) and 11 adversarial tests (prompt injection, disagreement, staleness, rejected verification, missing/unsupported assets) back this. See `docs/CIO_ORCHESTRATION_SPEC.md`.
+* A first end-to-end MVP UI (Phase E7): a FastAPI `backend` calling the real engines/CIO in-process against one illustrative demo portfolio, and a React/TypeScript `frontend` implementing all seven `APP_UX_BLUEPRINT.md` screens (Today, Portfolio, Opportunities, Risk, Research, Scenario Lab, Ask OptiFi) — FACT/ESTIMATE/JUDGEMENT always visually distinguished, a real "Why?" evidence-trace drill-down, and a non-VERIFIED status always flagged. Still no live data, no accounts, and no execution surface of any kind. See `docs/FRONTEND_SPEC.md`.
 
 Experimental / not yet connected
 * No live market data. `data-engine`'s provider abstraction only has a deterministic fixture provider behind it — no Bloomberg, LSEG, or other paid/live feed is connected. Real vendor selection is a documented, open procurement decision (see `docs/DATA_SOURCE_REGISTRY.md`), not a technical blocker.
@@ -140,27 +141,28 @@ OptiFi/
 ├── simulation-engine/    scenario generation and Monte Carlo — implemented
 ├── optimisation-engine/  capital allocation and optimisation — implemented
 ├── verification-engine/  independent consistency and quality checks — implemented
-├── ai-engine/            research synthesis and orchestration — implemented
+├── ai-engine/            research synthesis, CIO orchestration (Phase E6) — implemented
+├── replay-engine/        historical replay and decision reconstruction (Phase E5) — implemented
 ├── shared/               the UAP contract and cross-engine types
-├── backend/              orchestration/API layer — placeholder
-├── frontend/             user interface — placeholder
+├── backend/              FastAPI technical orchestration / JSON API (Phase E7) — implemented, MVP
+├── frontend/             React/TypeScript UI, all seven APP_UX_BLUEPRINT.md screens (Phase E7) — implemented, MVP
 ├── infrastructure/       deployment and operations — placeholder
 ├── research/             placeholder
 ├── scripts/              placeholder
 ├── tests/                cross-engine integration and adversarial tests
 └── docs/                 specifications and architecture documents
 
-For deeper technical documentation, see /docs. Recommended starting points: PRODUCT_VISION.md, SYSTEM_ARCHITECTURE.md, ENGINE_PIPELINE_SPECIFICATION.md, ANALYTICAL_CONTRACT_SPEC.md, VERIFICATION_FRAMEWORK.md.
+For deeper technical documentation, see /docs. Recommended starting points: PRODUCT_VISION.md, SYSTEM_ARCHITECTURE.md, ENGINE_PIPELINE_SPECIFICATION.md, ANALYTICAL_CONTRACT_SPEC.md, VERIFICATION_FRAMEWORK.md, FRONTEND_SPEC.md.
 
 ⸻
 
 Current Status & Roadmap
 
-Now — nine specialist engines implemented and tested, communicating through the shared UAP contract, plus `replay-engine` (historical replay) and a CIO/Manager orchestration layer in `ai-engine` (dynamic routing, roadblock handling, the verification gate, evidence trace, sophistication-tiered explanation). Data ingestion, forecasting, and evaluation infrastructure exist and run end to end against synthetic and fixture data.
+Now — nine specialist engines implemented and tested, communicating through the shared UAP contract, plus `replay-engine` (historical replay), a CIO/Manager orchestration layer in `ai-engine` (dynamic routing, roadblock handling, the verification gate, evidence trace, sophistication-tiered explanation), and a first MVP UI (`backend` + `frontend`) implementing all seven `APP_UX_BLUEPRINT.md` screens against one illustrative demo portfolio. Data ingestion, forecasting, and evaluation infrastructure exist and run end to end against synthetic and fixture data.
 
-Not yet — a connected live data vendor, a real LLM/NLU provider behind the CIO's text generation, a deployed backend/frontend, real user accounts or portfolios, or personalised recommendation generation.
+Not yet — a connected live data vendor, a real LLM/NLU provider behind the CIO's text generation, a deployed (as opposed to locally-run) backend/frontend, real user accounts or portfolios, or personalised recommendation generation.
 
-Next — real vendor selection for market/macro data (a procurement decision, not a technical one), a decision on wiring a real LLM provider behind the CIO's `ExplanationGenerator` seam, and a first thin end-to-end product slice.
+Next — real vendor selection for market/macro data (a procurement decision, not a technical one), a decision on wiring a real LLM provider behind the CIO's `ExplanationGenerator` seam, and a real Financial Twin / account model to replace the current illustrative demo portfolio.
 
 OptiFi moves in discrete, documented phases — see /docs for the full specification set.
 

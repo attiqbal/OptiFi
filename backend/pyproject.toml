@@ -1,0 +1,33 @@
+[project]
+name = "optifi-backend"
+version = "0.1.0"
+description = "backend: technical orchestration and the JSON API the frontend renders, per SYSTEM_ARCHITECTURE.md Section 5/6 (Phase E7)."
+requires-python = ">=3.10"
+dependencies = [
+    "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+    "optifi-causal @ file:///Users/eapple/OptiFi/causal-engine",
+    "optifi-forecast @ file:///Users/eapple/OptiFi/forecast-engine",
+    "optifi-evaluation @ file:///Users/eapple/OptiFi/evaluation-engine",
+    "optifi-quant @ file:///Users/eapple/OptiFi/quant-engine",
+    "optifi-simulation @ file:///Users/eapple/OptiFi/simulation-engine",
+    "optifi-optimisation @ file:///Users/eapple/OptiFi/optimisation-engine",
+    "optifi-verification @ file:///Users/eapple/OptiFi/verification-engine",
+    "optifi-ai @ file:///Users/eapple/OptiFi/ai-engine",
+    "optifi-replay @ file:///Users/eapple/OptiFi/replay-engine",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
