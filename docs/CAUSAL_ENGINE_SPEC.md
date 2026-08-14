@@ -1,6 +1,6 @@
 # CAUSAL_ENGINE_SPEC
 
-**Status:** DRAFT (v1.1 — Phase 11, patch: Section 8 item 3 follow-up closed)
+**Status:** DRAFT (v1.2 — Phase E4, patch: Section 5.7 regime note + Section 8 item 5 added)
 
 ## 1. Purpose & Scope
 
@@ -82,6 +82,21 @@ economy? This is `causal-engine`'s own internal check, distinct from
 **5.7 Uncertainty** — key limitations (e.g. "may not hold during unusually
 high inflation") belong in the `limitations` field, not omitted.
 
+**5.8 Regime dependency (added Phase E4).** A claim MAY additionally state
+the `regime` it is understood to hold under (free text, e.g.
+'high-inflation', 'tightening-cycle' — not a controlled taxonomy; which
+regime axes matter is left exactly as open as Section 3 leaves causal
+methodology itself). `causal-engine/optifi_causal/causal_claim.py`
+implements this as an optional `regime` field on `CausalClaim`, defaulted
+to `None` (general/regime-unconditional), purely additive over the
+existing contract. This exists to support `simulation-engine`'s Phase E4
+transmission-graph propagation work
+(`SIMULATION_ENGINE_SPEC.md` Section 6) recording which regime a
+transmission pathway's evidence applies under — it does not implement or
+choose any regime-*detection* methodology, which remains a genuinely
+open research question (see the Phase E4 deliverable's own "unresolved
+research questions").
+
 ## 6. The Correlation/Causation Guardrail, Restated
 
 This is important enough to state on its own, not only buried in Section
@@ -115,3 +130,12 @@ Section 7 — not collapsed into a single claim before reaching `ai-engine`.
 4. Whether `causal-engine` ever needs limited access to aggregated,
    non-identifiable portfolio-pattern data (distinct from raw per-user Twin
    access) to detect emerging relationships is not addressed.
+5. **Added Phase E4:** `TransmissionGraph`
+   (`causal-engine/optifi_causal/transmission_graph.py`) implements pure
+   graph plumbing (indexing, multi-hop pathway discovery with cycle
+   safety) over `CausalClaim` edges, used by `simulation-engine` to find
+   supported multi-hop pathways (e.g. inflation surprise -> policy-rate
+   expectations -> yield curve -> duration-sensitive assets). This is
+   graph STRUCTURE only — it does not compose or combine multiple edges'
+   evidence/magnitude into a single end-to-end relationship, which
+   remains open (see the Phase E4 deliverable's research questions).

@@ -1,0 +1,29 @@
+[project]
+name = "optifi-replay"
+version = "0.1.0"
+description = "replay-engine: historical replay and decision reconstruction, per ENGINE_PIPELINE_SPECIFICATION.md Section 12 item 7 (Phase E5)."
+requires-python = ">=3.10"
+dependencies = [
+    "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+    "optifi-data @ file:///Users/eapple/OptiFi/data-engine",
+    "optifi-causal @ file:///Users/eapple/OptiFi/causal-engine",
+    "optifi-forecast @ file:///Users/eapple/OptiFi/forecast-engine",
+    "optifi-evaluation @ file:///Users/eapple/OptiFi/evaluation-engine",
+    "optifi-simulation @ file:///Users/eapple/OptiFi/simulation-engine",
+    "optifi-quant @ file:///Users/eapple/OptiFi/quant-engine",
+    "optifi-optimisation @ file:///Users/eapple/OptiFi/optimisation-engine",
+    "optifi-verification @ file:///Users/eapple/OptiFi/verification-engine",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["optifi_replay*"]

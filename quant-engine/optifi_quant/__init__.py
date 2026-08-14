@@ -24,8 +24,15 @@ from .capital_efficiency import (
     tax_efficiency,
 )
 from .covariance import correlation_matrix, covariance_matrix, portfolio_variance
+from .factor_sensitivity import (
+    DEFAULT_MIN_OBSERVATIONS,
+    duration_price_sensitivity,
+    estimate_factor_sensitivity,
+)
 from .hedging import minimum_variance_hedge_ratio
+from .portfolio_propagation import propagate_to_portfolio
 from .risk_metrics import historical_var, parametric_var, sharpe_ratio
+from .sensitivity_registry import SensitivityLookupResult, SensitivityRegistry
 
 __all__ = [
     "sharpe_ratio",
@@ -42,4 +49,10 @@ __all__ = [
     "investment_efficiency",
     "composite_capital_efficiency_score",
     "minimum_variance_hedge_ratio",
+    "estimate_factor_sensitivity",
+    "duration_price_sensitivity",
+    "DEFAULT_MIN_OBSERVATIONS",
+    "SensitivityRegistry",
+    "SensitivityLookupResult",
+    "propagate_to_portfolio",
 ]

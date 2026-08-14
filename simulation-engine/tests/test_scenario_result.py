@@ -109,3 +109,28 @@ def test_sensitivity_factors_empty_list_is_accepted():
         **_base_kwargs(), range_low=-0.01, range_high=0.05, sensitivity_factors=[]
     )
     assert result.sensitivity_factors == []
+
+
+# --- Phase E4: Testing Requirement "deterministic single-number simulation" ---
+
+
+def test_zero_width_range_is_rejected():
+    """A range collapsed to a single point is a deterministic value
+    wearing a range-shaped costume — Part 5 explicitly forbids this."""
+    with pytest.raises(ValidationError):
+        ScenarioResult(
+            **{**_base_kwargs(), "base_case": 0.02},
+            range_low=0.02,
+            range_high=0.02,
+            sensitivity_factors=[],
+        )
+
+
+def test_genuinely_narrow_but_nonzero_range_is_still_accepted():
+    result = ScenarioResult(
+        **{**_base_kwargs(), "base_case": 0.02},
+        range_low=0.0199,
+        range_high=0.0201,
+        sensitivity_factors=[],
+    )
+    assert result.range_low < result.range_high

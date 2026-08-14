@@ -59,6 +59,15 @@ class ScenarioResult(UAP):
        <= range_high`) — this is a reasonable addition made here, not a
        requirement SIMULATION_ENGINE_SPEC.md explicitly states the way it
        states the range-must-exist requirement.
+    4. PHASE E4 addition — the range must have genuine width
+       (`range_low < range_high`, strictly): Part 5's "Do not produce one
+       deterministic 'future portfolio value.'" A `range_low == range_high`
+       "range" satisfies guardrail 2's mere existence check but expresses
+       zero actual uncertainty — a single number wearing a range-shaped
+       costume. No genuine real-world scenario has zero width; this
+       tightening has no legitimate use case to break, and directly
+       enables the Testing Requirement "deterministic single-number
+       simulation."
     """
 
     information_class: InformationClass = Field(
@@ -143,5 +152,21 @@ class ScenarioResult(UAP):
                 f"({self.base_case}) — an uncertainty range that doesn't "
                 "cover its own central estimate is internally "
                 "inconsistent."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _range_must_have_genuine_width(self) -> "ScenarioResult":
+        # PHASE E4 addition — see the class docstring, item 4.
+        if self.range_low == self.range_high:
+            raise ValueError(
+                f"ScenarioResult: range_low == range_high == "
+                f"{self.range_low} — a zero-width 'range' expresses no "
+                "genuine uncertainty (PHASE E4 Part 5: 'Do not produce "
+                "one deterministic future value.'). If the true "
+                "uncertainty around this estimate is genuinely "
+                "unknown, that is itself a limitation to state in "
+                "`limitations`, not a reason to collapse the range to a "
+                "point."
             )
         return self

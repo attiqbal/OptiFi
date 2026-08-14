@@ -55,6 +55,12 @@ class CausalClaim(UAP):
        statistical correlation, with neither, must never be output as a
        causal claim — this is enforced here as a hard construction-time
        error, not a soft warning.
+
+    PHASE E4 addition: an optional `regime` field (see its own
+    description below) — purely additive, defaulted to `None`, so every
+    existing construction call in this codebase remains valid unchanged.
+    This is the same "extend the contract, never break it" discipline
+    Phase E1 already established for `UAP` itself.
     """
 
     information_class: InformationClass = Field(
@@ -114,6 +120,24 @@ class CausalClaim(UAP):
         description=(
             "CAUSAL_ENGINE_SPEC.md Section 5.4: expected delay between "
             "cause and effect."
+        ),
+    )
+    regime: Optional[str] = Field(
+        default=None,
+        description=(
+            "PHASE E4 brief, Part 4 ('Regime Awareness'): the market/"
+            "economic regime this claim's relationship is understood to "
+            "hold under (e.g. 'high-inflation', 'recession', "
+            "'tightening-cycle') — free text, not a controlled taxonomy,  "
+            "matching this class's existing treatment of `time_lag`/"
+            "`relationship_strength`: which regime axes matter, and how "
+            "they're defined/measured, is a genuine open research "
+            "question this project does not resolve by inventing a fixed "
+            "enum (see CAUSAL_ENGINE_SPEC.md Section 3's own "
+            "methodology-agnosticism). `None` means the claim is asserted "
+            "to hold generally, not conditioned on any particular regime "
+            "— the same 'no claim, not a claim of universality' reading "
+            "`time_lag=None` already has."
         ),
     )
 

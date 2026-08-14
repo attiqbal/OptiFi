@@ -85,3 +85,23 @@ def test_information_class_cannot_be_set_to_anything_other_than_estimate(other_c
             mechanism="a mechanism",
             information_class=other_class,
         )
+
+
+# --- Phase E4: regime field (purely additive) ---
+
+
+def test_regime_defaults_to_none():
+    claim = CausalClaim(**_base_kwargs(), mechanism="a mechanism")
+    assert claim.regime is None
+
+
+def test_regime_can_be_set_to_free_text():
+    claim = CausalClaim(**_base_kwargs(), mechanism="a mechanism", regime="high-inflation")
+    assert claim.regime == "high-inflation"
+
+
+def test_existing_construction_pattern_unaffected_by_new_regime_field():
+    """The guardrail from before Phase E4 still fires exactly as it did —
+    adding `regime` did not loosen or otherwise touch it."""
+    with pytest.raises(ValidationError):
+        CausalClaim(**_base_kwargs(), regime="high-inflation")  # no mechanism/precedent

@@ -1,6 +1,6 @@
 # QUANT_ENGINE_SPEC
 
-**Status:** DRAFT (v2.1 — Phase 7, patch: Section 11 item 2 resolved)
+**Status:** DRAFT (v2.2 — Phase E4, patch: Section 11 item 4 scope clarification)
 
 ## 1. Purpose & Scope
 
@@ -195,6 +195,13 @@ collapsed into a single net signal before reaching `ai-engine`.
    asymmetric (Section 7) is unresolved.
 4. Which specific factor model (Section 5.4) `quant-engine` uses for factor
    exposure is not chosen here — only that the category of output exists.
+   **Not resolved by Phase E4:** that phase's `factor_sensitivity.py`
+   implements sensitivity to a single, NAMED macro/market driver (a
+   yield, a rate, an FX pair) for scenario-transmission purposes
+   (`PHASE E4` brief) — a genuinely different axis of "factor" than this
+   item's equity STYLE-factor model (value, size, momentum, quality,
+   low-volatility). Conflating the two would misrepresent Phase E4 as
+   having resolved this item; it did not touch it.
 5. Historical vs. parametric vs. Monte Carlo VaR (Section 5.3) — this
    document specifies all three as available methods; which is used by
    default, or whether all three are computed and reconciled, is not

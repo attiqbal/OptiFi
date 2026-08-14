@@ -1,6 +1,6 @@
 # ENGINE_PIPELINE_SPECIFICATION
 
-**Status:** DRAFT (v2.7 — Phase E3, patch: Section 12 item 1 resolved)
+**Status:** DRAFT (v2.8 — Phase E5, patch: Section 12 item 6 added — replay-engine ownership)
 
 ## 1. Revision Notes (v1 → v2)
 
@@ -374,3 +374,43 @@ must not be conflated:
    branches of this question are now answered, asymmetrically by design.
 6. Should this document's `Status` field move from `DRAFT (v2)` to a
    versioned approval state once reviewed, and what is that process?
+7. **Added and resolved (Phase E5):** historical replay/backtesting —
+   reconstructing exactly what OptiFi could have known and concluded at
+   a historical point in time, then evaluating the resulting decision
+   against what later occurred — had no owner anywhere in this
+   document. It is not one of the 14 stages; it is a cross-cutting
+   harness that re-runs several stages (5 through 11) under a frozen
+   information cutoff, then hands off to Stage 14 for outcome tracking.
+   **RESOLVED:** a new top-level package, `replay-engine`, was created —
+   the smallest coherent change, following the same reasoning Item 1
+   above already established for `evaluation-engine`. Three alternatives
+   were considered and rejected:
+   - **Extending `backend`** — rejected. `SYSTEM_ARCHITECTURE.md`
+     Section 11 defines `backend`'s technical orchestration as routing
+     requests between *live, deployed* engine services at runtime.
+     Historical replay is an offline research/reconstruction harness
+     that calls existing pure functions directly, in-process — no
+     deployed service topology, no live request routing. Conflating the
+     two would blur a genuine live-system concern with an offline tool,
+     and `backend` itself remains unimplemented (placeholder only),
+     unlike every engine `replay-engine` depends on.
+   - **Extending `evaluation-engine`** — rejected. Stage 14 tracks
+     realised outcomes against *already-produced* forecasts/
+     recommendations; it has no machinery for reconstructing a
+     historical information state or orchestrating the rest of the
+     pipeline under a frozen cutoff. `replay-engine`'s own outcome-
+     evaluation step (Part 3 of its brief) *calls* `evaluation-engine`
+     directly rather than reimplementing it — the dependency runs one
+     way, and folding the orchestration/snapshot half into
+     `evaluation-engine` would misrepresent Stage 14's own, narrower
+     documented purpose.
+   - **Extending `data-engine`** — rejected. Stage 1/2's cache/vintage
+     machinery (Phase E2) is directly reused for the "freeze information
+     as of T" mechanism, but orchestrating the full downstream pipeline
+     (causal, forecast, simulation, quant, optimisation, verification)
+     is far outside `data-engine`'s Stage 1/2 boundary.
+
+   `replay-engine` depends on `shared` plus every one of the nine
+   analytical engines (it orchestrates, it does not itself perform novel
+   analysis) — nothing depends back on it, so no circular package
+   dependency is introduced. See `replay-engine/README.md`.
