@@ -97,11 +97,12 @@ Implemented and tested
 * A provider-agnostic data ingestion framework (`data-engine`): a `ProviderAdapter` interface any real vendor could plug into, acquisition and validation orchestration (staleness, duplicate, currency-mismatch, discontinuity, and calendar checks), and a deterministic local cache that replays any previously-ingested record byte-for-byte.
 * A forecasting and evaluation layer (`forecast-engine` + `evaluation-engine`): several baselines (naive, historical mean, rolling mean, AR(1)) and two competing model families (a statistical and a lightweight ML model) per forecasting target, evaluated with strict walk-forward validation that never trains on future data. Forecasts are frozen once made, scored with target-appropriate metrics, and rolled up into auditable per-model scorecards that can retire an underperforming model automatically.
 * Independent verification and disagreement-preserving synthesis logic that keeps model estimates and AI interpretations visibly distinct from verified facts, end to end.
+* A CIO/Manager orchestration layer (`ai-engine`, Phase E6): dynamic routing that decides which specialist engines a query actually needs rather than running all of them, roadblock detection (missing dependencies, data staleness against present time), a verification-gate mapping onto `verification-engine`'s tested verdict taxonomy that the CIO can never override on REJECT, a "Why?" evidence trace back to underlying analytical packets, and sophistication-tiered (beginner/informed/professional) explanation that never changes the underlying facts, only how much of them is spelled out. Two worked, fully-real routing examples (a single-engine lookup and a six-engine causal-to-verification decision chain) and 11 adversarial tests (prompt injection, disagreement, staleness, rejected verification, missing/unsupported assets) back this. See `docs/CIO_ORCHESTRATION_SPEC.md`.
 
 Experimental / not yet connected
 * No live market data. `data-engine`'s provider abstraction only has a deterministic fixture provider behind it — no Bloomberg, LSEG, or other paid/live feed is connected. Real vendor selection is a documented, open procurement decision (see `docs/DATA_SOURCE_REGISTRY.md`), not a technical blocker.
 * All current forecasting examples run on synthetic data. The three demonstration targets (UK CPI inflation, a synthetic index's realised volatility, a synthetic company's revenue-growth direction) use fixed-seed, statistically realistic but fabricated series, clearly labelled as such in the code, because no real historical series is connected yet. Backtest results demonstrate the evaluation methodology, not real-world forecasting skill.
-* The Financial Twin (a per-user financial-position model, described in `/docs`) and full AI CIO synthesis are specified but not yet built as running product code. An illustrative synthetic vertical-slice test wires every engine together end to end (`tests/integration/`) — but there is no deployed application, no user accounts, and no connection to anyone's real portfolio.
+* The Financial Twin (a per-user financial-position model, described in `/docs`) is specified but not yet built as running product code. The CIO orchestration layer (routing, roadblock handling, the verification gate, explanation) is real and tested (Phase E6), but text generation throughout `ai-engine` still goes through a `StubExplanationGenerator` — no real LLM provider, API key, or network call exists anywhere in the codebase; wiring one in is a separate, not-yet-made decision, kept swappable by design. An illustrative synthetic vertical-slice test wires every engine together end to end (`tests/integration/`) — but there is no deployed application, no user accounts, and no connection to anyone's real portfolio.
 
 Explicitly out of scope right now
 * Real-time data, live trading, or execution of any financial transaction.
@@ -155,11 +156,11 @@ For deeper technical documentation, see /docs. Recommended starting points: PROD
 
 Current Status & Roadmap
 
-Now — nine specialist engines implemented and tested, communicating through the shared UAP contract. Data ingestion, forecasting, and evaluation infrastructure exist and run end to end against synthetic and fixture data.
+Now — nine specialist engines implemented and tested, communicating through the shared UAP contract, plus `replay-engine` (historical replay) and a CIO/Manager orchestration layer in `ai-engine` (dynamic routing, roadblock handling, the verification gate, evidence trace, sophistication-tiered explanation). Data ingestion, forecasting, and evaluation infrastructure exist and run end to end against synthetic and fixture data.
 
-Not yet — a connected live data vendor, a deployed backend/frontend, real user accounts or portfolios, or personalised recommendation generation.
+Not yet — a connected live data vendor, a real LLM/NLU provider behind the CIO's text generation, a deployed backend/frontend, real user accounts or portfolios, or personalised recommendation generation.
 
-Next — real vendor selection for market/macro data (a procurement decision, not a technical one), wiring the AI CIO synthesis layer to real rather than illustrative candidate generation, and a first thin end-to-end product slice.
+Next — real vendor selection for market/macro data (a procurement decision, not a technical one), a decision on wiring a real LLM provider behind the CIO's `ExplanationGenerator` seam, and a first thin end-to-end product slice.
 
 OptiFi moves in discrete, documented phases — see /docs for the full specification set.
 

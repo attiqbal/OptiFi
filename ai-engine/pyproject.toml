@@ -1,10 +1,17 @@
 [project]
 name = "optifi-ai"
 version = "0.1.0"
-description = "ai-engine: candidate framing, unstructured-extraction support, disagreement-preserving synthesis, and disclosure, per AI_ENGINE_SPEC.md."
+description = "ai-engine: candidate framing, unstructured-extraction support, disagreement-preserving synthesis, disclosure, and CIO/manager orchestration, per AI_ENGINE_SPEC.md and Phase E6."
 requires-python = ">=3.10"
 dependencies = [
     "optifi-shared @ file:///Users/eapple/OptiFi/shared",
+    "optifi-causal @ file:///Users/eapple/OptiFi/causal-engine",
+    "optifi-forecast @ file:///Users/eapple/OptiFi/forecast-engine",
+    "optifi-simulation @ file:///Users/eapple/OptiFi/simulation-engine",
+    "optifi-quant @ file:///Users/eapple/OptiFi/quant-engine",
+    "optifi-optimisation @ file:///Users/eapple/OptiFi/optimisation-engine",
+    "optifi-verification @ file:///Users/eapple/OptiFi/verification-engine",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
